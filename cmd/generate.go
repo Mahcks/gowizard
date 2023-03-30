@@ -79,9 +79,7 @@ var generateCmd = &cobra.Command{
 			enabledAdapters = append(enabledAdapters, "redis")
 		}
 
-		enabledAdapters = append(enabledAdapters, "logger")
-
-		generator.NewGenerator(projectName, path, enabledAdapters)
+		generator.NewGenerator(projectName, path, enabledAdapters, []string{})
 	},
 }
 

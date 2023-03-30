@@ -9,7 +9,8 @@ run:
 	go run . generate \
 	--name $(MODULE) \
 	--path $(MODULE_PATH) \
-	--mariadb
+	--mariadb \
+	--redis
 
 clean:
 	rm -rf $(MODULE_PATH)/*

@@ -12,6 +12,7 @@ import (
 	"github.com/mahcks/gowizard/internal/domain"
 	mariadbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mariadb"
 	redisAdapter "github.com/mahcks/gowizard/internal/templates/adapters/redis"
+	fasthttpServer "github.com/mahcks/gowizard/internal/templates/services/fasthttpserver"
 )
 
 type Generator struct {
@@ -24,11 +25,12 @@ type Generator struct {
 
 var ptr = Op("*")
 
-func NewGenerator(moduleName, path string, enabledAdapters []string) *Generator {
+func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []string) *Generator {
 	settings := &domain.Settings{
 		Path:     path,
 		Module:   moduleName,
 		Adapters: enabledAdapters,
+		Services: enabledServices,
 	}
 
 	adapters := map[string]domain.ModuleI{
@@ -36,9 +38,14 @@ func NewGenerator(moduleName, path string, enabledAdapters []string) *Generator 
 		"redis":   redisAdapter.NewAdapter("redis", settings),
 	}
 
+	services := map[string]domain.ModuleI{
+		"fasthttpserver": fasthttpServer.NewService("fasthttpserver", settings),
+	}
+
 	gen := &Generator{
 		settings: settings,
 		adapters: adapters,
+		services: services,
 		logger:   "zap",
 	}
 
@@ -51,22 +58,28 @@ func NewGenerator(moduleName, path string, enabledAdapters []string) *Generator 
 	fmt.Println(fmt.Sprintf("Executed `go mod init %s`", settings.Module))
 
 	// Genereates the folder structure
+	fmt.Println("Generating folder structure")
 	gen.generateFolderStructure()
 
 	// Copies over the proper logger and ensures any errors are handled with that logger
+	fmt.Println("Using logger: ", gen.logger)
 	gen.useLogger()
 
 	// Generates the cmd/main.go file
+	fmt.Println("Generating main.go file")
 	gen.generateMainFile()
 
 	// Generates the internal/app/app.go file
+	fmt.Println("Generating app.go file")
 	gen.createInternalAppFile()
 
 	// Generates the internal/config/config.go file
+	fmt.Println("Generating config.go file")
 	gen.createConfigGoFile()
 
 	// Copies the files from the adapters folder to the project
-	gen.copyAdapterFiles()
+	fmt.Println("Copying over files...")
+	gen.copyFiles()
 
 	err = gen.executeCommand(exec.Command("go", "mod", "tidy"))
 	if err != nil {
@@ -74,6 +87,8 @@ func NewGenerator(moduleName, path string, enabledAdapters []string) *Generator 
 	}
 
 	fmt.Println("Executed `go mod tidy`")
+
+	fmt.Println("Done!")
 
 	return gen
 }
@@ -155,7 +170,9 @@ func (g *Generator) generateMainFile() {
 			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - logger - New"), Lit("error"), Err()),
 		),
 		Line(),
-		Qual(g.settings.Module+"/internal/app", "Run").Call(Id("cfg")),
+		Id("gCtx").Op(",").Id("cancel").Op(":=").Qual("context", "WithCancel").Params(Qual("context", "Background").Call()),
+		Line(),
+		Qual(g.settings.Module+"/internal/app", "Run").Call(Id("gCtx"), Id("cancel"), Id("cfg")),
 	)
 
 	// Save the file
@@ -168,13 +185,20 @@ func (g *Generator) generateMainFile() {
 
 func (gen *Generator) createInternalAppFile() {
 	// Get all the adapters
-	var adapterInit []Code
-	var adapterShutdown []Code
+	var init []Code
+	var shutdown []Code
 
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			adapterInit = append(adapterInit, adapter.AppInit()...)
-			adapterShutdown = append(adapterShutdown, adapter.AppShutdown()...)
+			init = append(init, adapter.AppInit()...)
+			shutdown = append(shutdown, adapter.AppShutdown()...)
+		}
+	}
+
+	for _, service := range gen.services {
+		if gen.settings.IsServiceChecked(service.GetName()) {
+			init = append(init, service.AppInit()...)
+			shutdown = append(shutdown, service.AppShutdown()...)
 		}
 	}
 
@@ -183,11 +207,16 @@ func (gen *Generator) createInternalAppFile() {
 	f.Anon("github.com/go-sql-driver/mysql")
 
 	// Create the main Run function
-	f.Func().Id("Run").Params(Id("cfg").Add(ptr).Qual(gen.settings.Module+"/config", "Config")).BlockFunc(func(g *Group) {
-		g.Id("gCtx").Op(",").Id("cancel").Op(":=").Qual("context", "WithCancel").Params(Qual("context", "Background").Call())
-		g.Var().Err().Error()
-		g.Line().Comment("Initialize adapters")
-		g.Add(adapterInit...)
+	f.Func().Id("Run").Params(Id("gCtx").Qual("context", "Context"), Id("cancel").Qual("context", "CancelFunc"), Id("cfg").Add(ptr).Qual(gen.settings.Module+"/config", "Config")).BlockFunc(func(g *Group) {
+		if len(gen.settings.Adapters) != 0 && len(gen.settings.Services) != 0 {
+			g.Var().Err().Error()
+		}
+
+		fmt.Println(gen.settings.Adapters)
+		if len(gen.settings.Adapters) != 0 {
+			g.Line().Comment("Initialize adapters")
+		}
+		g.Add(init...)
 		g.Line().Comment("Listen for interuptions")
 		g.Id("interrupt").Op(":=").Make(Chan().Qual("os", "Signal"), Lit(1))
 		g.Qual("os/signal", "Notify").Params(Id("interrupt"), Qual("os", "Interrupt"), Qual("syscall", "SIGTERM"))
@@ -199,7 +228,7 @@ func (gen *Generator) createInternalAppFile() {
 		)
 		g.Line().Comment("Shutdown")
 		g.Id("cancel").Call()
-		g.Add(adapterShutdown...)
+		g.Add(shutdown...)
 	})
 
 	err := f.Save(gen.settings.Path + "/internal/app/app.go")
@@ -269,10 +298,17 @@ func (gen *Generator) createConfigGoFile() {
 	}
 }
 
-func (gen *Generator) copyAdapterFiles() {
+// copyFiles - Copies all the needed adapters, services, controllers and config files
+func (gen *Generator) copyFiles() {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
 			gen.copyFileToFolder("internal/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
+		}
+	}
+
+	for _, service := range gen.services {
+		if gen.settings.IsServiceChecked(service.GetName()) {
+			gen.copyFileToFolder("internal/templates/services/"+service.GetName()+"/service.go", gen.settings.Path+"/pkg/"+service.GetName())
 		}
 	}
 }

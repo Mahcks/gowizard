@@ -27,7 +27,9 @@ to quickly create a Cobra application.`,
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		var enabledAdapters []string
+		var enabledServices []string
 		enabledAdapters = append(enabledAdapters, "logger", "mariadb", "redis")
+		enabledServices = append(enabledServices, "rest-fasthttp")
 
 		// init styles; optional, just showing as a way to organize styles
 		// start bubble tea and init first model
@@ -45,7 +47,7 @@ to quickly create a Cobra application.`,
 			log.Fatal(err)
 		}
 
-		generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters)
+		generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters, enabledServices)
 	},
 }
 
