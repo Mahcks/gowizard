@@ -206,8 +206,12 @@ func (gen *Generator) createInternalAppFile() {
 	}
 
 	f := NewFilePathName("internal/app", "app")
+
 	// Anonymous import for SQL driver
-	f.Anon("github.com/go-sql-driver/mysql")
+	// Only doing it if SQL is used
+	if gen.settings.IsAdapterChecked("mariadb") {
+		f.Anon("github.com/go-sql-driver/mysql")
+	}
 
 	// Create the main Run function
 	f.Func().Id("Run").Params(Id("gCtx").Qual("context", "Context"), Id("cancel").Qual("context", "CancelFunc"), Id("cfg").Add(ptr).Qual(gen.settings.Module+"/config", "Config")).BlockFunc(func(g *Group) {
@@ -215,10 +219,10 @@ func (gen *Generator) createInternalAppFile() {
 			g.Var().Err().Error()
 		}
 
-		fmt.Println(gen.settings.Adapters)
 		if len(gen.settings.Adapters) != 0 {
 			g.Line().Comment("Initialize adapters")
 		}
+
 		g.Add(init...)
 		g.Line().Comment("Listen for interuptions")
 		g.Id("interrupt").Op(":=").Make(Chan().Qual("os", "Signal"), Lit(1))
