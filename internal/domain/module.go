@@ -5,19 +5,20 @@ import (
 )
 
 type ModuleI interface {
+	GetName() string
 	ConfigGo() *j.Statement
 	AppInit() []j.Code
-	AppShutdown() *j.Statement
+	AppShutdown() []j.Code
 }
 
 type Settings struct {
-	Folder          string
-	ProjectName     string
-	EnabledAdapters []string // List of enabled adapters by user
+	Path     string
+	Module   string
+	Adapters []string
 }
 
 func (s *Settings) IsAdapterChecked(adapterName string) bool {
-	for _, adapter := range s.EnabledAdapters {
+	for _, adapter := range s.Adapters {
 		if adapter == adapterName {
 			return true
 		}

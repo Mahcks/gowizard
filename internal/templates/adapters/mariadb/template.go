@@ -7,11 +7,18 @@ import (
 )
 
 type Adapter struct {
-	*domain.Settings
+	name             string // name of the adapter
+	*domain.Settings        // settings of the project
 }
 
-func NewAdapter(settings *domain.Settings) domain.ModuleI {
+// GetName returns the name of the adapter
+func (a *Adapter) GetName() string {
+	return a.name
+}
+
+func NewAdapter(name string, settings *domain.Settings) domain.ModuleI {
 	return &Adapter{
+		name:     name,
 		Settings: settings,
 	}
 }
@@ -47,8 +54,7 @@ func (m *Adapter) ConfigYAML() ([]byte, error) {
 
 func (m *Adapter) AppInit() []j.Code {
 	return []j.Code{
-
-		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(m.ProjectName+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
+		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(m.Module+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - mariadb.New"), j.Lit("error"), j.Id("err")),
 		),
@@ -58,6 +64,8 @@ func (m *Adapter) AppInit() []j.Code {
 	}
 }
 
-func (m *Adapter) AppShutdown() *j.Statement {
-	return j.Id("mdb").Dot("Close").Call()
+func (m *Adapter) AppShutdown() []j.Code {
+	return []j.Code{
+		j.Id("mdb").Dot("Close").Call(),
+	}
 }

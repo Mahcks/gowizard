@@ -6,7 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mahcks/gowizard/internal/builder"
+	"github.com/mahcks/gowizard/internal/generator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -45,7 +45,7 @@ to quickly create a Cobra application.`,
 			log.Fatal(err)
 		}
 
-		builder.NewBuilder(questions[1].answer, questions[0].answer, enabledAdapters)
+		generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters)
 	},
 }
 

@@ -6,12 +6,19 @@ import (
 )
 
 type Adapter struct {
-	domain.Settings
+	name             string // name of the adapter
+	*domain.Settings        // settings of the project
 }
 
-func NewAdapter(settings *domain.Settings) domain.ModuleI {
+// GetName returns the name of the adapter
+func (a *Adapter) GetName() string {
+	return a.name
+}
+
+func NewAdapter(name string, settings *domain.Settings) domain.ModuleI {
 	return &Adapter{
-		Settings: *settings,
+		name:     name,
+		Settings: settings,
 	}
 }
 
@@ -25,7 +32,8 @@ func (a *Adapter) ConfigGo() *j.Statement {
 
 func (a *Adapter) AppInit() []j.Code {
 	return []j.Code{
-		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(a.ProjectName+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
+		j.Line(),
+		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(a.Module+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - redis.New"), j.Lit("error"), j.Id("err")),
 		),
@@ -35,6 +43,9 @@ func (a *Adapter) AppInit() []j.Code {
 	}
 }
 
-func (a *Adapter) AppShutdown() *j.Statement {
-	return j.Id("redisClient").Dot("Close").Call()
+func (a *Adapter) AppShutdown() []j.Code {
+	return []j.Code{
+		j.Line(),
+		j.Id("redisClient").Dot("Close").Call(),
+	}
 }

@@ -4,6 +4,22 @@ Let a wizard guide you through your Go module set up quickly.
 
 > This project is still in development so use at your own risk!
 
+## Installation
+```bash
+go get -u github.com/mahcks/gowizard
+```
+
+## Usage
+Using the standard wizard:
+```bash
+gowizard
+```
+
+Quickly generate a new project with the needed services, controllers and adapters while bypassing the wizard:
+```bash
+gowizard generate --module github.com/username/module --path /path/to/module --mariadb --redis
+```
+
 ## Services
 - [ ] REST - Standard HTTP
 - [ ] REST - fasthttp
@@ -15,18 +31,9 @@ Let a wizard guide you through your Go module set up quickly.
 
 ## Adapters
 - [x] MariaDB
-- [x] Redis
 - [ ] MongoDB
-- [ ] PostgreSQL
 - [ ] MySQL
+- [ ] PostgreSQL
+- [x] Redis
 - [ ] SQLite
 
-Start the wizard:
-```bash
-gowizard
-```
-
-Quickly generate a new project with a MariaDB and Redis database:
-```bash
-gowizard generate --module github.com/username/module --path /path/to/module --mariadb --redis
-```

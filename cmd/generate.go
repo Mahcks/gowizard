@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mahcks/gowizard/internal/builder"
+	"github.com/mahcks/gowizard/internal/generator"
 	"github.com/spf13/cobra"
 )
 
@@ -81,7 +81,7 @@ var generateCmd = &cobra.Command{
 
 		enabledAdapters = append(enabledAdapters, "logger")
 
-		builder.NewBuilder(path, projectName, enabledAdapters)
+		generator.NewGenerator(projectName, path, enabledAdapters)
 	},
 }
 
