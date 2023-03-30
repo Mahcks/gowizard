@@ -1,13 +1,12 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-
-*/
 package cmd
 
 import (
 	"fmt"
+	"log"
 	"os"
 
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/mahcks/gowizard/internal/builder"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -26,7 +25,28 @@ This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	// Run: func(cmd *cobra.Command, args []string) { },
+	Run: func(cmd *cobra.Command, args []string) {
+		var enabledAdapters []string
+		enabledAdapters = append(enabledAdapters, "logger", "mariadb", "redis")
+
+		// init styles; optional, just showing as a way to organize styles
+		// start bubble tea and init first model
+		questions := []Question{newShortQuestion("What is the name of your module?"), newShortQuestion("Enter your desired path for the module")}
+		main := New(questions)
+
+		f, err := tea.LogToFile("debug.log", "debug")
+		if err != nil {
+			fmt.Println("fatal:", err)
+			os.Exit(1)
+		}
+		defer f.Close()
+		p := tea.NewProgram(*main, tea.WithAltScreen())
+		if _, err := p.Run(); err != nil {
+			log.Fatal(err)
+		}
+
+		builder.NewBuilder(questions[1].answer, questions[0].answer, enabledAdapters)
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

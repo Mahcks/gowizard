@@ -3,12 +3,17 @@ package mariadb
 import (
 	j "github.com/dave/jennifer/jen"
 	"github.com/mahcks/gowizard/internal/domain"
+	"gopkg.in/yaml.v2"
 )
 
-type Adapter struct{}
+type Adapter struct {
+	*domain.Settings
+}
 
-func NewAdapter() domain.ModuleI {
-	return &Adapter{}
+func NewAdapter(settings *domain.Settings) domain.ModuleI {
+	return &Adapter{
+		Settings: settings,
+	}
 }
 
 func (m *Adapter) ConfigGo() *j.Statement {
@@ -21,9 +26,29 @@ func (m *Adapter) ConfigGo() *j.Statement {
 	).Tag(map[string]string{"mapstructure": "mariadb", "json": "mariadb"})
 }
 
+func (m *Adapter) ConfigYAML() ([]byte, error) {
+	data := map[string]interface{}{
+		"mariadb": map[string]interface{}{
+			"host":     "localhost",
+			"port":     "3306",
+			"username": "user",
+			"password": "password",
+			"database": "testdb",
+		},
+	}
+
+	yamlData, err := yaml.Marshal(&data)
+	if err != nil {
+		return nil, err
+	}
+
+	return yamlData, nil
+}
+
 func (m *Adapter) AppInit() []j.Code {
 	return []j.Code{
-		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual("github.com/mahcks/test-project/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
+
+		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(m.ProjectName+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - mariadb.New"), j.Lit("error"), j.Id("err")),
 		),

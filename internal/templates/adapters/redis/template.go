@@ -5,10 +5,14 @@ import (
 	"github.com/mahcks/gowizard/internal/domain"
 )
 
-type Adapter struct{}
+type Adapter struct {
+	domain.Settings
+}
 
-func NewAdapter() domain.ModuleI {
-	return &Adapter{}
+func NewAdapter(settings *domain.Settings) domain.ModuleI {
+	return &Adapter{
+		Settings: *settings,
+	}
 }
 
 func (a *Adapter) ConfigGo() *j.Statement {
@@ -21,7 +25,7 @@ func (a *Adapter) ConfigGo() *j.Statement {
 
 func (a *Adapter) AppInit() []j.Code {
 	return []j.Code{
-		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual("github.com/mahcks/test-project/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
+		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(a.ProjectName+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - redis.New"), j.Lit("error"), j.Id("err")),
 		),

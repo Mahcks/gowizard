@@ -1,7 +1,6 @@
 package builder
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
@@ -15,71 +14,61 @@ import (
 )
 
 type Builder struct {
-	settings *Settings
+	settings *domain.Settings
 	adapters map[string]domain.ModuleI
-}
-
-type Settings struct {
-	folder          string
-	projectName     string
-	enabledAdapters []string // List of enabled adapters by user
-}
-
-func (s *Settings) IsAdapterChecked(adapterName string) bool {
-	for _, adapter := range s.enabledAdapters {
-		if adapter == adapterName {
-			return true
-		}
-	}
-
-	return false
 }
 
 var ptr = Op("*")
 
 func NewBuilder(folder, projectName string, enabledAdapters []string) {
+	settings := &domain.Settings{
+		Folder:          folder,
+		ProjectName:     projectName,
+		EnabledAdapters: enabledAdapters,
+	}
+
 	builder := &Builder{
-		settings: &Settings{
-			folder:          "/Users/mahcks/Desktop/Stack-Test",
-			projectName:     "github.com/mahcks/test-project",
-			enabledAdapters: enabledAdapters,
-		},
+		settings: settings,
 		adapters: map[string]domain.ModuleI{
-			"mariadb": mariadbAdapter.NewAdapter(),
-			"redis":   redisAdapter.NewAdapter(),
+			"mariadb": mariadbAdapter.NewAdapter(settings),
+			"redis":   redisAdapter.NewAdapter(settings),
 		},
 	}
 
-	fmt.Println(builder.settings.enabledAdapters)
-
 	// Execute `go mod init <module-name>`
-	cmd := exec.Command("go", "mod", "init", builder.settings.projectName)
-	cmd.Dir = builder.settings.folder
+	cmd := exec.Command("go", "mod", "init", builder.settings.ProjectName)
+	cmd.Dir = builder.settings.Folder
 	err := cmd.Run()
 	if err != nil {
 		panic(err)
 	}
+	fmt.Println(fmt.Sprintf("Executed `go mod init %s`", builder.settings.ProjectName))
 
 	// Create initial structure
+	fmt.Println("Created initial structure...")
 	builder.createStructure()
 
 	// Create the internal/app/app.go file
+	fmt.Println("Created internal/app/app.go file...")
 	builder.createInternalGoFile()
 
 	// Create the config/config.go file
+	fmt.Println("Created config/config.go file...")
 	builder.createConfigGoFile()
 
 	// Create the cmd/app/main.go file
+	fmt.Println("Created cmd/app/main.go file...")
 	builder.createMainFile()
 
 	// Execute `go mod tidy`
 	cmd = exec.Command("go", "mod", "tidy")
-	cmd.Dir = builder.settings.folder
+	cmd.Dir = builder.settings.Folder
 	err = cmd.Run()
 	if err != nil {
 		fmt.Println("ERROR", err.Error())
 		panic(err)
 	}
+	fmt.Println("Executed `go mod tidy`")
 }
 
 // Creates the cmd/app/main.go file
@@ -92,21 +81,21 @@ func (b *Builder) createMainFile() {
 
 	// main function
 	mainFile.Func().Id("main").Params().Block(
-		List(Id("cfg"), Err()).Op(":=").Qual(b.settings.projectName+"/config", "New").Call(Id("Version")),
+		List(Id("cfg"), Err()).Op(":=").Qual(b.settings.ProjectName+"/config", "New").Call(Id("Version")),
 		If(Err().Op("!=").Nil()).Block(
 			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - config - New"), Lit("error"), Err()),
 		),
 		Line(),
-		Err().Op("=").Qual(b.settings.projectName+"/pkg/logger", "New").Call(Id("Version")),
+		Err().Op("=").Qual(b.settings.ProjectName+"/pkg/logger", "New").Call(Id("Version")),
 		If().Err().Op("!=").Nil().Block(
 			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - logger - New"), Lit("error"), Err()),
 		),
 		Line(),
-		Qual(b.settings.projectName+"/internal/app", "Run").Call(Id("cfg")),
+		Qual(b.settings.ProjectName+"/internal/app", "Run").Call(Id("cfg")),
 	)
 
 	// Save the file
-	err := mainFile.Save(b.settings.folder + "/cmd/app/main.go")
+	err := mainFile.Save(b.settings.Folder + "/cmd/app/main.go")
 	if err != nil {
 		fmt.Println(err.Error())
 		panic(err)
@@ -114,13 +103,15 @@ func (b *Builder) createMainFile() {
 }
 
 func (b *Builder) createConfigGoFile() {
-	f := NewFilePathName(b.settings.projectName+"/config", "config")
+	f := NewFilePathName(b.settings.ProjectName+"/config", "config")
 
 	// The config struct
-	f.Type().Id("Config").Struct(
+	test := Type().Id("Config").Struct(
 		b.adapters["mariadb"].ConfigGo(),
 		b.adapters["redis"].ConfigGo(),
 	).Line()
+
+	f.Add(test)
 
 	ptr := Op("*")
 	// Function to create a new config
@@ -156,7 +147,7 @@ func (b *Builder) createConfigGoFile() {
 	)
 
 	// Save the file
-	err := f.Save(b.settings.folder + "/config/config.go")
+	err := f.Save(b.settings.Folder + "/config/config.go")
 	if err != nil {
 		fmt.Println(err.Error())
 		panic(err)
@@ -175,7 +166,7 @@ func (b *Builder) createInternalGoFile() {
 	f.Anon("github.com/go-sql-driver/mysql")
 
 	// Create the main Run function
-	f.Func().Id("Run").Params(Id("cfg").Add(ptr).Qual(b.settings.projectName+"/config", "Config")).BlockFunc(func(g *Group) {
+	f.Func().Id("Run").Params(Id("cfg").Add(ptr).Qual(b.settings.ProjectName+"/config", "Config")).BlockFunc(func(g *Group) {
 		g.Id("gCtx").Op(",").Id("cancel").Op(":=").Qual("context", "WithCancel").Params(Qual("context", "Background").Call())
 		g.Var().Err().Error()
 		g.Line().Comment("Initialize adapters")
@@ -197,19 +188,10 @@ func (b *Builder) createInternalGoFile() {
 		g.Add(b.adapters["redis"].AppShutdown())
 	})
 
-	err := f.Save(b.settings.folder + "/internal/app/app.go")
+	err := f.Save(b.settings.Folder + "/internal/app/app.go")
 	if err != nil {
 		fmt.Println(err.Error())
 		panic(err)
-	}
-
-	buf := &bytes.Buffer{}
-
-	err = f.Render(buf)
-	if err != nil {
-		fmt.Println(err.Error())
-	} else {
-		fmt.Println(buf.String())
 	}
 }
 
@@ -238,20 +220,19 @@ func (b *Builder) createStructure() {
 
 			if b.settings.IsAdapterChecked("logger") {
 				sourceFile := "./internal/templates/logger/service.go"
-				destinationFolder := b.settings.folder + "/pkg/logger"
+				destinationFolder := b.settings.Folder + "/pkg/logger"
 				b.copyFileToFolder(sourceFile, destinationFolder)
 			}
 
 			if b.settings.IsAdapterChecked("mariadb") {
 				sourceFile := "./internal/templates/adapters/mariadb/service.go"
-				destinationFolder := b.settings.folder + "/pkg/mariadb"
+				destinationFolder := b.settings.Folder + "/pkg/mariadb"
 				b.copyFileToFolder(sourceFile, destinationFolder)
 			}
 
 			if b.settings.IsAdapterChecked("redis") {
 				sourceFile := "./internal/templates/adapters/redis/service.go"
-				destinationFolder := b.settings.folder + "/pkg/redis"
-				fmt.Println(destinationFolder)
+				destinationFolder := b.settings.Folder + "/pkg/redis"
 				b.copyFileToFolder(sourceFile, destinationFolder)
 			}
 		default:
@@ -261,8 +242,8 @@ func (b *Builder) createStructure() {
 }
 
 func (b *Builder) createFolder(folderName string, subfolders []string) {
-	if _, err := os.Stat(b.settings.folder + "/" + folderName); os.IsNotExist(err) {
-		err := os.Mkdir(b.settings.folder+"/"+folderName, 0755)
+	if _, err := os.Stat(b.settings.Folder + "/" + folderName); os.IsNotExist(err) {
+		err := os.Mkdir(b.settings.Folder+"/"+folderName, 0755)
 		if err != nil {
 			fmt.Println("Error creating folder:", err)
 			return
@@ -270,7 +251,7 @@ func (b *Builder) createFolder(folderName string, subfolders []string) {
 
 		if subfolders != nil {
 			for _, subfolderName := range subfolders {
-				err := os.Mkdir(b.settings.folder+"/"+folderName+"/"+subfolderName, 0755)
+				err := os.Mkdir(b.settings.Folder+"/"+folderName+"/"+subfolderName, 0755)
 				if err != nil {
 					fmt.Println("Error creating folder:", err)
 					return

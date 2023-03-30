@@ -1,6 +1,3 @@
-/*
-Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-*/
 package cmd
 
 import (
@@ -83,6 +80,7 @@ var generateCmd = &cobra.Command{
 		}
 
 		enabledAdapters = append(enabledAdapters, "logger")
+
 		builder.NewBuilder(path, projectName, enabledAdapters)
 	},
 }
