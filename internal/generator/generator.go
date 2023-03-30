@@ -3,11 +3,13 @@ package generator
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 
 	. "github.com/dave/jennifer/jen"
+	"gopkg.in/yaml.v2"
 
 	"github.com/mahcks/gowizard/internal/domain"
 	mariadbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mariadb"
@@ -74,8 +76,9 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 	gen.createInternalAppFile()
 
 	// Generates the internal/config/config.go file
-	fmt.Println("Generating config.go file")
+	fmt.Println("Generating config files")
 	gen.createConfigGoFile()
+	gen.createConfigYamlFile()
 
 	// Copies the files from the adapters folder to the project
 	fmt.Println("Copying over files...")
@@ -251,11 +254,9 @@ func (gen *Generator) createConfigGoFile() {
 	}
 
 	// The config struct
-	test := Type().Id("Config").Struct(
+	f.Type().Id("Config").Struct(
 		adapterConfigs...,
 	).Line()
-
-	f.Add(test)
 
 	ptr := Op("*")
 	// Function to create a new config
@@ -294,6 +295,49 @@ func (gen *Generator) createConfigGoFile() {
 	err := f.Save(gen.settings.Path + "/config/config.go")
 	if err != nil {
 		fmt.Println(err.Error())
+		panic(err)
+	}
+}
+
+func (gen *Generator) createConfigYamlFile() {
+	// Add the config struct parts for the various pieces
+	var configs []map[string]interface{}
+
+	// Loop over adapters and get its config
+	for _, adapter := range gen.adapters {
+		if gen.settings.IsAdapterChecked(adapter.GetName()) {
+			configs = append(configs, adapter.ConfigYAML())
+		}
+	}
+
+	// Marshal each map into a separate YAML document
+	var yamlDocs []string
+	for _, item := range configs {
+		yamlData, err := yaml.Marshal(item)
+		if err != nil {
+			panic(err)
+		}
+		yamlDocs = append(yamlDocs, string(yamlData))
+	}
+
+	// Concatenate the YAML documents
+	finalYaml := ""
+	for i, doc := range yamlDocs {
+		if i == 0 {
+			finalYaml += doc
+		} else {
+			finalYaml += "\n" + doc + "\n"
+		}
+	}
+
+	// Write the YAML data to a file
+	err := ioutil.WriteFile(gen.settings.Path+"/config/config.yaml", []byte(finalYaml), 0644)
+	if err != nil {
+		panic(err)
+	}
+
+	err = ioutil.WriteFile(gen.settings.Path+"/config/config.dev.yaml", []byte(finalYaml), 0644)
+	if err != nil {
 		panic(err)
 	}
 }

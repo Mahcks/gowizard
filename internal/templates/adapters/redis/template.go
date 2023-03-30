@@ -30,6 +30,16 @@ func (a *Adapter) ConfigGo() *j.Statement {
 	).Tag(map[string]string{"mapstructure": "redis", "json": "redis"})
 }
 
+func (a *Adapter) ConfigYAML() map[string]interface{} {
+	return map[string]interface{}{
+		"redis": map[string]interface{}{
+			"host":     "localhost",
+			"port":     "6379",
+			"password": "password123",
+		},
+	}
+}
+
 func (a *Adapter) AppInit() []j.Code {
 	return []j.Code{
 		j.Line(),

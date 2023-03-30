@@ -27,6 +27,10 @@ func (s *Service) ConfigGo() *j.Statement {
 	return nil
 }
 
+func (s *Service) ConfigYAML() map[string]interface{} {
+	return nil
+}
+
 func (s *Service) AppInit() []j.Code {
 	return []j.Code{
 		j.Line(),

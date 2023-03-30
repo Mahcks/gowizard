@@ -3,7 +3,6 @@ package mariadb
 import (
 	j "github.com/dave/jennifer/jen"
 	"github.com/mahcks/gowizard/internal/domain"
-	"gopkg.in/yaml.v2"
 )
 
 type Adapter struct {
@@ -33,8 +32,8 @@ func (m *Adapter) ConfigGo() *j.Statement {
 	).Tag(map[string]string{"mapstructure": "mariadb", "json": "mariadb"})
 }
 
-func (m *Adapter) ConfigYAML() ([]byte, error) {
-	data := map[string]interface{}{
+func (m *Adapter) ConfigYAML() map[string]interface{} {
+	return map[string]interface{}{
 		"mariadb": map[string]interface{}{
 			"host":     "localhost",
 			"port":     "3306",
@@ -43,13 +42,6 @@ func (m *Adapter) ConfigYAML() ([]byte, error) {
 			"database": "testdb",
 		},
 	}
-
-	yamlData, err := yaml.Marshal(&data)
-	if err != nil {
-		return nil, err
-	}
-
-	return yamlData, nil
 }
 
 func (m *Adapter) AppInit() []j.Code {
