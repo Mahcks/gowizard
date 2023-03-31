@@ -34,6 +34,6 @@ gowizard generate --module github.com/username/module --path /path/to/module --m
 - [x] MongoDB - [go.mongodb.org/mongo-driver (v1.11.3)](https://github.com/mongodb/mongo-go-driver)
 - [ ] MySQL
 - [ ] PostgreSQL
-- [x] Redis - [github.com/go-redis/redis/v8 (v8.11.5)](github.com/go-redis/redis/v8)
+- [x] Redis - [github.com/go-redis/redis/v8 (v8.11.5)](https://github.com/redis/go-redis)
 - [ ] SQLite
 
