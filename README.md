@@ -6,7 +6,7 @@ Let a wizard guide you through your Go module set up quickly.
 
 ## Installation
 ```bash
-go get -u github.com/mahcks/gowizard
+go install github.com/mahcks/gowizard@latest
 ```
 
 ## Usage
