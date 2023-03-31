@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"os"
+	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mahcks/gowizard/pkg/generator"
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+
+	"github.com/mahcks/gowizard/pkg/generator"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 var cfgFile string
@@ -21,34 +24,80 @@ var rootCmd = &cobra.Command{
 
 You can also just skip the wizard... 
 gowizard generate --module github.com/user/repo --path /some/path --adapter mariadb,redis --service rest-fasthttp`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
-		var enabledAdapters []string
-		var enabledServices []string
-		enabledAdapters = append(enabledAdapters, "mariadb", "redis")
-		// enabledServices = append(enabledServices, "rest-fasthttp")
+		iconStyles := survey.WithIcons(func(icons *survey.IconSet) {
+			icons.Question.Text = "[?]"
+			icons.Question.Format = "magenta+b"
 
-		// init styles; optional, just showing as a way to organize styles
-		// start bubble tea and init first model
-		questions := []Question{newShortQuestion("What is the name of your module?"), newShortQuestion("Enter your desired path for the module")}
-		main := New(questions)
+			icons.MarkedOption.Format = "cyan+b"
+		})
 
-		f, err := tea.LogToFile("debug.log", "debug")
+		// Ask for module name
+		module := ""
+		prompt := &survey.Input{
+			Message: "What is your desired module name?",
+			Help:    "This is the name of the module that will be generated. It should be in the format of github.com/userororg/repo",
+		}
+		err := survey.AskOne(prompt, &module, iconStyles, survey.WithValidator(survey.Required))
 		if err != nil {
-			fmt.Println("fatal:", err)
-			os.Exit(1)
-			return
-		}
-		defer f.Close()
-
-		p := tea.NewProgram(*main, tea.WithAltScreen())
-		if _, err := p.Run(); err != nil {
-			log.Fatal(err)
+			fmt.Println(err.Error())
 			return
 		}
 
-		gen := generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters, enabledServices)
+		// Ask for module path
+		path := ""
+		prompt = &survey.Input{
+			Message: "Where would you like to place the module?",
+			Default: "./",
+			Suggest: func(toComplete string) []string {
+				// Suggest directories in the current working directory
+				files, err := os.ReadDir(".")
+				if err != nil {
+					fmt.Println(err)
+					return nil
+				}
+
+				var suggestions []string
+				for _, file := range files {
+					if file.IsDir() {
+						suggestions = append(suggestions, file.Name())
+					}
+				}
+
+				return suggestions
+			}}
+		err = survey.AskOne(prompt, &path, iconStyles, survey.WithValidator(survey.Required))
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		// Ensure that the directory is empty before generating
+		isDirEmpty, err := utils.IsDirEmpty(path)
+
+		if !isDirEmpty {
+			fmt.Println(ansi.Color(fmt.Sprintf(`[✗] Error: directory "%s" is not empty`, path), "red"), ansi.ColorCode("reset"))
+			return
+		}
+
+		// Prompt for adapters
+		adapters := []string{}
+		adapterPrompt := &survey.MultiSelect{
+			Message: "Choose adapters:",
+			Options: []string{"MariaDB", "MongoDB", "Redis"},
+		}
+		err = survey.AskOne(adapterPrompt, &adapters, iconStyles)
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
+		// Lowercase all adapter names before passing them to the generator
+		for i, adapter := range adapters {
+			adapters[i] = strings.ToLower(adapter)
+		}
+
+		gen := generator.NewGenerator(module, path, adapters, []string{})
 		err = gen.Generate()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -77,7 +126,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -7,10 +7,9 @@ dev: clean run
 
 run:
 	go run . generate \
-	--name $(MODULE) \
+	--module $(MODULE) \
 	--path $(MODULE_PATH) \
-	--mariadb \
-	--redis
+	--adapter mariadb,redis,mongodb
 
 clean:
 	rm -rf $(MODULE_PATH)/*

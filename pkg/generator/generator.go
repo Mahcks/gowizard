@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	. "github.com/dave/jennifer/jen"
+	"github.com/mgutz/ansi"
 	"gopkg.in/yaml.v2"
 
 	"github.com/mahcks/gowizard/pkg/domain"
@@ -55,64 +56,78 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 	return gen
 }
 
+func (gen *Generator) successMessage(msg string) {
+	fmt.Println(ansi.Color("[✓]", "green"), ansi.Color(msg, "blue"), ansi.ColorCode("reset"))
+}
+
+func (gen *Generator) errorMessage(msg string) {
+	fmt.Println(ansi.Color("[✗]", "red"), ansi.Color(msg, "blue"), ansi.ColorCode("reset"))
+}
+
 func (gen *Generator) Generate() error {
+	// Genereates the folder structure
+	err := gen.generateFolderStructure()
+	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error generating folder structure: %s", err))
+	}
+	gen.successMessage("Generated folder structure...")
+
 	// Execute `go mod init <module-name>`
-	err := gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
+	err = gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
 	if err != nil {
 		fmt.Println("Error executing `go mod init` command: ", err)
 	}
-
-	fmt.Println(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
-
-	// Genereates the folder structure
-	fmt.Println("Generating folder structure")
-	err = gen.generateFolderStructure()
-	if err != nil {
-		fmt.Println("Error generating folder structure: ", err)
-	}
+	gen.successMessage(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
 
 	// Copies over the proper logger and ensures any errors are handled with that logger
-	fmt.Println("Using logger: ", gen.logger)
 	gen.useLogger()
+	gen.successMessage(fmt.Sprintf("Using logger: %s", gen.logger))
 
 	// Generates the cmd/main.go file
-	fmt.Println("Generating main.go file")
 	err = gen.generateMainFile()
 	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error generating main.go file: %s", err))
 		return err
 	}
+	gen.successMessage("Generated main.go file")
 
 	// Generates the internal/app/app.go file
-	fmt.Println("Generating app.go file")
 	err = gen.createInternalAppFile()
 	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error generating app.go file: %s", err))
 		return err
 	}
+	gen.successMessage("Generated app.go file")
 
 	// Generates the internal/config/config.go file
-	fmt.Println("Generating config files")
 	err = gen.createConfigGoFile()
 	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error generating config.go file: %s", err))
 		return err
 	}
 
 	err = gen.createConfigYamlFile()
 	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error generating config.yaml file: %s", err))
 		return err
 	}
+	gen.successMessage("Generated config files")
 
 	// Copies the files from the adapters folder to the project
-	fmt.Println("Copying over files...")
-	gen.copyFiles()
+	err = gen.copyFiles()
+	if err != nil {
+		gen.errorMessage(fmt.Sprintf("Error copying files from adapters folder: %s", err))
+		return err
+	}
+	gen.successMessage("Copied files from adapters folder...")
 
 	err = gen.executeCommand(exec.Command("go", "mod", "tidy"))
 	if err != nil {
 		return fmt.Errorf("error executing `go mod tidy` command: %s", err)
 	}
+	gen.successMessage("Executed `go mod tidy`")
 
-	fmt.Println("Executed `go mod tidy`")
-
-	fmt.Println("Done!")
+	fmt.Println(ansi.Color("Done!", "green+b"))
 
 	return nil
 }
@@ -374,10 +389,13 @@ func (gen *Generator) createConfigYamlFile() error {
 }
 
 // copyFiles - Copies all the needed adapters, services, controllers and config files
-func (gen *Generator) copyFiles() {
+func (gen *Generator) copyFiles() error {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
+			err := gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
+			if err != nil {
+				return err
+			}
 		}
 	}
 
@@ -386,6 +404,8 @@ func (gen *Generator) copyFiles() {
 			gen.copyFileToFolder("internal/templates/services/"+service.GetName()+"/service.go", gen.settings.Path+"/pkg/"+service.GetName())
 		}
 	} */
+
+	return nil
 }
 
 func (gen *Generator) copyFileToFolder(sourceFile, destinationFolder string) error {
