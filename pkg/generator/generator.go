@@ -52,17 +52,24 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 		logger: "zap",
 	}
 
+	return gen
+}
+
+func (gen *Generator) Generate() error {
 	// Execute `go mod init <module-name>`
-	err := gen.executeCommand(exec.Command("go", "mod", "init", settings.Module))
+	err := gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
 	if err != nil {
 		fmt.Println("Error executing `go mod init` command: ", err)
 	}
 
-	fmt.Println(fmt.Sprintf("Executed `go mod init %s`", settings.Module))
+	fmt.Println(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
 
 	// Genereates the folder structure
 	fmt.Println("Generating folder structure")
-	gen.generateFolderStructure()
+	err = gen.generateFolderStructure()
+	if err != nil {
+		fmt.Println("Error generating folder structure: ", err)
+	}
 
 	// Copies over the proper logger and ensures any errors are handled with that logger
 	fmt.Println("Using logger: ", gen.logger)
@@ -70,16 +77,29 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 
 	// Generates the cmd/main.go file
 	fmt.Println("Generating main.go file")
-	gen.generateMainFile()
+	err = gen.generateMainFile()
+	if err != nil {
+		return err
+	}
 
 	// Generates the internal/app/app.go file
 	fmt.Println("Generating app.go file")
-	gen.createInternalAppFile()
+	err = gen.createInternalAppFile()
+	if err != nil {
+		return err
+	}
 
 	// Generates the internal/config/config.go file
 	fmt.Println("Generating config files")
-	gen.createConfigGoFile()
-	gen.createConfigYamlFile()
+	err = gen.createConfigGoFile()
+	if err != nil {
+		return err
+	}
+
+	err = gen.createConfigYamlFile()
+	if err != nil {
+		return err
+	}
 
 	// Copies the files from the adapters folder to the project
 	fmt.Println("Copying over files...")
@@ -87,14 +107,14 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 
 	err = gen.executeCommand(exec.Command("go", "mod", "tidy"))
 	if err != nil {
-		fmt.Println("Error executing `go mod tidy` command: ", err)
+		return fmt.Errorf("error executing `go mod tidy` command: %s", err)
 	}
 
 	fmt.Println("Executed `go mod tidy`")
 
 	fmt.Println("Done!")
 
-	return gen
+	return nil
 }
 
 // Execute a given command
@@ -109,7 +129,7 @@ func (g *Generator) executeCommand(cmd *exec.Cmd) error {
 }
 
 // Generates the skeleton of the project
-func (g *Generator) generateFolderStructure() {
+func (gen *Generator) generateFolderStructure() error {
 	// Map of directories to be created
 	// Key = main directory, Value = sub-directories
 	var directories map[string][]string = map[string][]string{
@@ -128,34 +148,34 @@ func (g *Generator) generateFolderStructure() {
 
 	// Loop through the map and create directories and sub-directories
 	for parentDir, subDirs := range directories {
-		if _, err := os.Stat(g.settings.Path + "/" + parentDir); os.IsNotExist(err) {
-			err := os.Mkdir(g.settings.Path+"/"+parentDir, 0755)
+		if _, err := os.Stat(gen.settings.Path + "/" + parentDir); os.IsNotExist(err) {
+			err := os.Mkdir(gen.settings.Path+"/"+parentDir, 0755)
 			if err != nil {
-				fmt.Println("Error creating folder:", err)
-				return
+				return fmt.Errorf("error creating folder: %s", err)
 			}
 
 			if subDirs != nil {
 				for _, subfolderName := range subDirs {
-					err := os.Mkdir(g.settings.Path+"/"+parentDir+"/"+subfolderName, 0755)
+					err := os.Mkdir(gen.settings.Path+"/"+parentDir+"/"+subfolderName, 0755)
 					if err != nil {
-						fmt.Println("Error creating folder:", err)
-						return
+						return fmt.Errorf("error creating sub-folder: %s", err)
 					}
 				}
 			}
 		}
 	}
+
+	return nil
 }
 
-func (g *Generator) useLogger() {
-	if g.logger == "zap" {
+func (gen *Generator) useLogger() {
+	if gen.logger == "zap" {
 		// Copy the zap logger to the project
-		g.copyFileToFolder("pkg/templates/logger/zap.go", g.settings.Path+"/pkg/logger")
+		gen.copyFileToFolder("pkg/templates/logger/zap.go", gen.settings.Path+"/pkg/logger")
 	}
 }
 
-func (g *Generator) generateMainFile() {
+func (gen *Generator) generateMainFile() error {
 	mainFile := NewFilePathName("cmd/app", "main")
 
 	// Global variables
@@ -164,30 +184,32 @@ func (g *Generator) generateMainFile() {
 
 	// main function
 	mainFile.Func().Id("main").Params().Block(
-		List(Id("cfg"), Err()).Op(":=").Qual(g.settings.Module+"/config", "New").Call(Id("Version")),
+		List(Id("cfg"), Err()).Op(":=").Qual(gen.settings.Module+"/config", "New").Call(Id("Version")),
 		If(Err().Op("!=").Nil()).Block(
 			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - config - New"), Lit("error"), Err()),
 		),
 		Line(),
-		Err().Op("=").Qual(g.settings.Module+"/pkg/logger", "New").Call(Id("Version")),
+		Err().Op("=").Qual(gen.settings.Module+"/pkg/logger", "New").Call(Id("Version")),
 		If().Err().Op("!=").Nil().Block(
 			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - logger - New"), Lit("error"), Err()),
 		),
 		Line(),
 		Id("gCtx").Op(",").Id("cancel").Op(":=").Qual("context", "WithCancel").Params(Qual("context", "Background").Call()),
 		Line(),
-		Qual(g.settings.Module+"/internal/app", "Run").Call(Id("gCtx"), Id("cancel"), Id("cfg")),
+		Qual(gen.settings.Module+"/internal/app", "Run").Call(Id("gCtx"), Id("cancel"), Id("cfg")),
 	)
 
 	// Save the file
-	err := mainFile.Save(g.settings.Path + "/cmd/app/main.go")
+	err := mainFile.Save(gen.settings.Path + "/cmd/app/main.go")
 	if err != nil {
 		fmt.Println(err.Error())
-		panic(err)
+		return err
 	}
+
+	return nil
 }
 
-func (gen *Generator) createInternalAppFile() {
+func (gen *Generator) createInternalAppFile() error {
 	// Get all the adapters
 	var init []Code
 	var shutdown []Code
@@ -241,12 +263,13 @@ func (gen *Generator) createInternalAppFile() {
 
 	err := f.Save(gen.settings.Path + "/internal/app/app.go")
 	if err != nil {
-		fmt.Println(err.Error())
-		panic(err)
+		return fmt.Errorf("error creating internal/app/app.go file: %s", err)
 	}
+
+	return nil
 }
 
-func (gen *Generator) createConfigGoFile() {
+func (gen *Generator) createConfigGoFile() error {
 	f := NewFilePathName(gen.settings.Module+"/config", "config")
 
 	// Add the config struct parts for the various pieces
@@ -299,12 +322,13 @@ func (gen *Generator) createConfigGoFile() {
 	// Save the file
 	err := f.Save(gen.settings.Path + "/config/config.go")
 	if err != nil {
-		fmt.Println(err.Error())
-		panic(err)
+		return fmt.Errorf("error creating config/config.go file: %s", err)
 	}
+
+	return nil
 }
 
-func (gen *Generator) createConfigYamlFile() {
+func (gen *Generator) createConfigYamlFile() error {
 	// Add the config struct parts for the various pieces
 	var configs []map[string]interface{}
 
@@ -338,13 +362,15 @@ func (gen *Generator) createConfigYamlFile() {
 	// Write the YAML data to a file
 	err := ioutil.WriteFile(gen.settings.Path+"/config/config.yaml", []byte(finalYaml), 0644)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("error creating config/config.yaml file: %s", err)
 	}
 
 	err = ioutil.WriteFile(gen.settings.Path+"/config/config.dev.yaml", []byte(finalYaml), 0644)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("error creating config/config.dev.yaml file: %s", err)
 	}
+
+	return nil
 }
 
 // copyFiles - Copies all the needed adapters, services, controllers and config files
@@ -362,12 +388,11 @@ func (gen *Generator) copyFiles() {
 	} */
 }
 
-func (b *Generator) copyFileToFolder(sourceFile, destinationFolder string) {
+func (gen *Generator) copyFileToFolder(sourceFile, destinationFolder string) error {
 	// Open the source file
 	src, err := os.Open(sourceFile)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error opening source file: %s", err)
 	}
 	defer src.Close()
 
@@ -380,15 +405,15 @@ func (b *Generator) copyFileToFolder(sourceFile, destinationFolder string) {
 	destinationFile := destinationFolder + "/" + filepath.Base(sourceFile)
 	dst, err := os.Create(destinationFile)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error creating destination file: %s", err)
 	}
 	defer dst.Close()
 
 	// Copy the contents of the source file to the destination file
 	_, err = io.Copy(dst, src)
 	if err != nil {
-		fmt.Println(err)
-		return
+		return fmt.Errorf("error copying source file to destination file: %s", err)
 	}
+
+	return nil
 }

@@ -63,7 +63,12 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		generator.NewGenerator(moduleName, path, adapters, []string{})
+		gen := generator.NewGenerator(moduleName, path, adapters, []string{})
+		err = gen.Generate()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 	},
 }
 

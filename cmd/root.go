@@ -38,14 +38,22 @@ gowizard generate --module github.com/user/repo --path /some/path --adapter mari
 		if err != nil {
 			fmt.Println("fatal:", err)
 			os.Exit(1)
+			return
 		}
 		defer f.Close()
+
 		p := tea.NewProgram(*main, tea.WithAltScreen())
 		if _, err := p.Run(); err != nil {
 			log.Fatal(err)
+			return
 		}
 
-		generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters, enabledServices)
+		gen := generator.NewGenerator(questions[0].answer, questions[1].answer, enabledAdapters, enabledServices)
+		err = gen.Generate()
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
 	},
 }
 

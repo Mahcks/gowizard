@@ -101,8 +101,8 @@ func (m Main) View() string {
 	return lipgloss.Place(
 		m.width,
 		m.height,
-		lipgloss.Center,
-		lipgloss.Center,
+		lipgloss.Left,
+		lipgloss.Left,
 		lipgloss.JoinVertical(
 			lipgloss.Left,
 			current.question,
