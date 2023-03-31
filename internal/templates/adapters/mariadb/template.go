@@ -59,6 +59,7 @@ func (m *Adapter) AppInit() []j.Code {
 
 func (m *Adapter) AppShutdown() []j.Code {
 	return []j.Code{
+		j.Line(),
 		j.Id("mdb").Dot("Close").Call(),
 	}
 }

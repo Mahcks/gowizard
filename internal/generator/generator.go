@@ -13,6 +13,7 @@ import (
 
 	"github.com/mahcks/gowizard/internal/domain"
 	mariadbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mariadb"
+	mongodbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mongodb"
 	redisAdapter "github.com/mahcks/gowizard/internal/templates/adapters/redis"
 )
 
@@ -37,6 +38,7 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 	adapters := map[string]domain.ModuleI{
 		"mariadb": mariadbAdapter.NewAdapter("mariadb", settings),
 		"redis":   redisAdapter.NewAdapter("redis", settings),
+		"mongodb": mongodbAdapter.NewAdapter("mongodb", settings),
 	}
 
 	/* services := map[string]domain.ModuleI{

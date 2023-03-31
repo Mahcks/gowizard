@@ -50,6 +50,7 @@ func (a *Adapter) AppInit() []j.Code {
 		j.Line(),
 		j.Line(),
 		j.Qual("go.uber.org/zap", "S").Call().Dot("Infow").Call(j.Lit("main - app - Run"), j.Lit("message"), j.Lit("Redis initialized")),
+		j.Line(),
 	}
 }
 
