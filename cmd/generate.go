@@ -14,13 +14,13 @@ var generateCmd = &cobra.Command{
 	Short: "Generate a new project.",
 	Long:  `Generate a new Go module with a given name and path. You can also specifiy services and adapters to be included in the project.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		projectName, err := cmd.Flags().GetString("name")
+		moduleName, err := cmd.Flags().GetString("module")
 		if err != nil {
 			fmt.Println("Error: ", err)
 			return
 		}
 
-		if projectName == "" {
+		if moduleName == "" {
 			fmt.Println("Error: module name is required.")
 			return
 		}
@@ -56,39 +56,22 @@ var generateCmd = &cobra.Command{
 			fmt.Println("Error: Directory is NOT empty")
 		}
 
-		// Store enabled adapters
-		var enabledAdapters []string
-
-		mariaDBEnabled, err := cmd.Flags().GetBool("mariadb")
+		// Fetch adapters from flags
+		adapters, err := cmd.Flags().GetStringSlice("adapter")
 		if err != nil {
 			fmt.Println("Error: ", err)
 			return
 		}
 
-		redisAdapterEnabled, err := cmd.Flags().GetBool("redis")
-		if err != nil {
-			fmt.Println("Error: ", err)
-			return
-		}
-
-		if mariaDBEnabled {
-			enabledAdapters = append(enabledAdapters, "mariadb")
-		}
-
-		if redisAdapterEnabled {
-			enabledAdapters = append(enabledAdapters, "redis")
-		}
-
-		generator.NewGenerator(projectName, path, enabledAdapters, []string{})
+		generator.NewGenerator(moduleName, path, adapters, []string{})
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(generateCmd)
 
-	generateCmd.Flags().String("name", "", "Name of the module")
-	generateCmd.Flags().String("path", "", "Path to the module")
+	generateCmd.Flags().StringP("module", "m", "", "Name of the module")
+	generateCmd.Flags().StringP("path", "p", "", "Path to the module")
 
-	generateCmd.Flags().BoolP("mariadb", "", false, "Include MariaDB adapter")
-	generateCmd.Flags().BoolP("redis", "", false, "Include Redis adapter")
+	generateCmd.Flags().StringSliceP("adapter", "a", []string{}, "Add an adapter to the project, i.e. mariadb, redis")
 }

@@ -17,19 +17,17 @@ var cfgFile string
 var rootCmd = &cobra.Command{
 	Use:   "gowizard",
 	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
+	Long: `gowizard is a CLI tool to generate Go modules with a setup wizard.
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+You can also just skip the wizard... 
+gowizard generate --module github.com/user/repo --path /some/path --adapter mariadb,redis --service rest-fasthttp`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	Run: func(cmd *cobra.Command, args []string) {
 		var enabledAdapters []string
 		var enabledServices []string
-		enabledAdapters = append(enabledAdapters, "logger", "mariadb", "redis")
-		enabledServices = append(enabledServices, "rest-fasthttp")
+		enabledAdapters = append(enabledAdapters, "mariadb", "redis")
+		// enabledServices = append(enabledServices, "rest-fasthttp")
 
 		// init styles; optional, just showing as a way to organize styles
 		// start bubble tea and init first model

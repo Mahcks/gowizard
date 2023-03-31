@@ -14,15 +14,14 @@ import (
 	"github.com/mahcks/gowizard/internal/domain"
 	mariadbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mariadb"
 	redisAdapter "github.com/mahcks/gowizard/internal/templates/adapters/redis"
-	fasthttpServer "github.com/mahcks/gowizard/internal/templates/services/fasthttpserver"
 )
 
 type Generator struct {
 	settings    *domain.Settings
 	adapters    map[string]domain.ModuleI
 	controllers map[string]domain.ModuleI
-	services    map[string]domain.ModuleI
-	logger      string
+	// services    map[string]domain.ModuleI
+	logger string
 }
 
 var ptr = Op("*")
@@ -32,7 +31,7 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 		Path:     path,
 		Module:   moduleName,
 		Adapters: enabledAdapters,
-		Services: enabledServices,
+		// Services: enabledServices,
 	}
 
 	adapters := map[string]domain.ModuleI{
@@ -40,15 +39,15 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 		"redis":   redisAdapter.NewAdapter("redis", settings),
 	}
 
-	services := map[string]domain.ModuleI{
+	/* services := map[string]domain.ModuleI{
 		"fasthttpserver": fasthttpServer.NewService("fasthttpserver", settings),
-	}
+	} */
 
 	gen := &Generator{
 		settings: settings,
 		adapters: adapters,
-		services: services,
-		logger:   "zap",
+		// services: services,
+		logger: "zap",
 	}
 
 	// Execute `go mod init <module-name>`
@@ -198,12 +197,12 @@ func (gen *Generator) createInternalAppFile() {
 		}
 	}
 
-	for _, service := range gen.services {
+	/* for _, service := range gen.services {
 		if gen.settings.IsServiceChecked(service.GetName()) {
 			init = append(init, service.AppInit()...)
 			shutdown = append(shutdown, service.AppShutdown()...)
 		}
-	}
+	} */
 
 	f := NewFilePathName("internal/app", "app")
 
@@ -354,11 +353,11 @@ func (gen *Generator) copyFiles() {
 		}
 	}
 
-	for _, service := range gen.services {
+	/* for _, service := range gen.services {
 		if gen.settings.IsServiceChecked(service.GetName()) {
 			gen.copyFileToFolder("internal/templates/services/"+service.GetName()+"/service.go", gen.settings.Path+"/pkg/"+service.GetName())
 		}
-	}
+	} */
 }
 
 func (b *Generator) copyFileToFolder(sourceFile, destinationFolder string) {
