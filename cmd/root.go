@@ -6,7 +6,7 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/mahcks/gowizard/internal/generator"
+	"github.com/mahcks/gowizard/pkg/generator"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

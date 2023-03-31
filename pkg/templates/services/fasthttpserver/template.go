@@ -3,7 +3,7 @@ package fasthttpserver
 import (
 	j "github.com/dave/jennifer/jen"
 
-	"github.com/mahcks/gowizard/internal/domain"
+	"github.com/mahcks/gowizard/pkg/domain"
 )
 
 type Service struct {

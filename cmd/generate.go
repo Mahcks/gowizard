@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mahcks/gowizard/internal/generator"
+	"github.com/mahcks/gowizard/pkg/generator"
 	"github.com/spf13/cobra"
 )
 

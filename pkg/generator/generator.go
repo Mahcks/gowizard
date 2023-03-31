@@ -11,10 +11,10 @@ import (
 	. "github.com/dave/jennifer/jen"
 	"gopkg.in/yaml.v2"
 
-	"github.com/mahcks/gowizard/internal/domain"
-	mariadbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mariadb"
-	mongodbAdapter "github.com/mahcks/gowizard/internal/templates/adapters/mongodb"
-	redisAdapter "github.com/mahcks/gowizard/internal/templates/adapters/redis"
+	"github.com/mahcks/gowizard/pkg/domain"
+	mariadbAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/mariadb"
+	mongodbAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/mongodb"
+	redisAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/redis"
 )
 
 type Generator struct {
@@ -151,7 +151,7 @@ func (g *Generator) generateFolderStructure() {
 func (g *Generator) useLogger() {
 	if g.logger == "zap" {
 		// Copy the zap logger to the project
-		g.copyFileToFolder("internal/templates/logger/zap.go", g.settings.Path+"/pkg/logger")
+		g.copyFileToFolder("pkg/templates/logger/zap.go", g.settings.Path+"/pkg/logger")
 	}
 }
 
@@ -351,7 +351,7 @@ func (gen *Generator) createConfigYamlFile() {
 func (gen *Generator) copyFiles() {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			gen.copyFileToFolder("internal/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
+			gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
 		}
 	}
 
