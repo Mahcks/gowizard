@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-
 	"github.com/mahcks/gowizard/pkg/generator"
+	"github.com/mahcks/gowizard/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -16,57 +14,49 @@ var generateCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		moduleName, err := cmd.Flags().GetString("module")
 		if err != nil {
-			fmt.Println("Error: ", err)
+			utils.PrintError("error getting module flag: %s", err)
 			return
 		}
 
 		if moduleName == "" {
-			fmt.Println("Error: module name is required.")
+			utils.PrintError("module name is required")
 			return
 		}
 
 		path, err := cmd.Flags().GetString("path")
 		if err != nil {
-			fmt.Println("Error: ", err)
+			utils.PrintError("error getting path flag: %s", err)
 			return
 		}
 
 		if path == "" {
-			fmt.Println("Error: module path is required.")
+			utils.PrintError("module path is required")
 			return
 		}
 
 		// Open the directory user has given
-		f, err := os.Open(path)
+		isEmpty, err := utils.IsDirEmpty(path)
 		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		defer f.Close()
-
-		// Get list of files/directories in the directory
-		files, err := f.Readdir(-1)
-		if err != nil {
-			fmt.Println(err)
+			utils.PrintError("unable to open file: %s" + err.Error())
 			return
 		}
 
-		// If directory is not empty, throw an error
-		if len(files) != 0 {
-			fmt.Println("Error: Directory is NOT empty")
+		if !isEmpty {
+			utils.PrintError("The directory you have specified is not empty.")
+			return
 		}
 
 		// Fetch adapters from flags
 		adapters, err := cmd.Flags().GetStringSlice("adapter")
 		if err != nil {
-			fmt.Println("Error: ", err)
+			utils.PrintError("error getting adapter flags: %s", err)
 			return
 		}
 
 		gen := generator.NewGenerator(moduleName, path, adapters, []string{})
 		err = gen.Generate()
 		if err != nil {
-			fmt.Println(err.Error())
+			utils.PrintError("error generating project: %v", err)
 			return
 		}
 	},
@@ -76,7 +66,7 @@ func init() {
 	rootCmd.AddCommand(generateCmd)
 
 	generateCmd.Flags().StringP("module", "m", "", "Name of the module")
-	generateCmd.Flags().StringP("path", "p", "", "Path to the module")
+	generateCmd.Flags().StringP("path", "p", "./", "Path to the module")
 
 	generateCmd.Flags().StringSliceP("adapter", "a", []string{}, "Add an adapter to the project, i.e. mariadb, redis")
 }

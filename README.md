@@ -17,7 +17,7 @@ gowizard
 
 Quickly generate a new project with the needed services, controllers and adapters while bypassing the wizard:
 ```bash
-gowizard generate --module github.com/username/module --path /path/to/module --mariadb --redis
+gowizard generate --module github.com/username/module --path /path/to/module --adapter mariadb,redis,mongodb
 ```
 
 ## Services

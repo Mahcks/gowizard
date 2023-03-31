@@ -41,3 +41,16 @@ func (s *Service) AppInit() []j.Code {
 func (s *Service) AppShutdown() []j.Code {
 	return []j.Code{}
 }
+
+func (s *Service) Service() *j.File {
+	f := j.NewFilePathName(s.Settings.Module+"/pkg/redis", "redis")
+
+	// Service struct
+	sStruct := j.Type().Id("Redis").Struct(
+		j.Id("Client").Qual("github.com/go-redis/redis/v8", "Client"),
+	)
+
+	f.Add(sStruct)
+
+	return f
+}

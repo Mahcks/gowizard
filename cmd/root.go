@@ -23,7 +23,7 @@ var rootCmd = &cobra.Command{
 	Long: `gowizard is a CLI tool to generate Go modules with a setup wizard.
 
 You can also just skip the wizard... 
-gowizard generate --module github.com/user/repo --path /some/path --adapter mariadb,redis --service rest-fasthttp`,
+gowizard generate --module github.com/username/module --path /path/to/module --adapter mariadb,redis,mongodb`,
 	Run: func(cmd *cobra.Command, args []string) {
 		iconStyles := survey.WithIcons(func(icons *survey.IconSet) {
 			icons.Question.Text = "[?]"

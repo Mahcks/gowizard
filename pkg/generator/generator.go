@@ -2,28 +2,26 @@ package generator
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/mgutz/ansi"
 	"gopkg.in/yaml.v2"
 
 	"github.com/mahcks/gowizard/pkg/domain"
-	mariadbAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/mariadb"
-	mongodbAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/mongodb"
-	redisAdapter "github.com/mahcks/gowizard/pkg/templates/adapters/redis"
+	adapterTemplates "github.com/mahcks/gowizard/pkg/templates/adapters"
+	loggerTemplates "github.com/mahcks/gowizard/pkg/templates/logger"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type Generator struct {
 	settings    *domain.Settings
 	adapters    map[string]domain.ModuleI
 	controllers map[string]domain.ModuleI
+	loggers     map[string]domain.ModuleI
 	// services    map[string]domain.ModuleI
-	logger string
 }
 
 var ptr = Op("*")
@@ -31,15 +29,20 @@ var ptr = Op("*")
 func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []string) *Generator {
 	settings := &domain.Settings{
 		Path:     path,
+		Logger:   "zap",
 		Module:   moduleName,
 		Adapters: enabledAdapters,
 		// Services: enabledServices,
 	}
 
+	loggers := map[string]domain.ModuleI{
+		"zap": loggerTemplates.NewZapLogger(settings),
+	}
+
 	adapters := map[string]domain.ModuleI{
-		"mariadb": mariadbAdapter.NewAdapter("mariadb", settings),
-		"redis":   redisAdapter.NewAdapter("redis", settings),
-		"mongodb": mongodbAdapter.NewAdapter("mongodb", settings),
+		"mariadb": adapterTemplates.NewMariaDBAdapter(settings),
+		"redis":   adapterTemplates.NewRedisAdapter(settings),
+		"mongodb": adapterTemplates.NewMongoDBAdapter(settings),
 	}
 
 	/* services := map[string]domain.ModuleI{
@@ -50,43 +53,39 @@ func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []st
 		settings: settings,
 		adapters: adapters,
 		// services: services,
-		logger: "zap",
+		loggers: loggers,
 	}
 
 	return gen
 }
 
 func (gen *Generator) successMessage(msg string) {
-	fmt.Println(ansi.Color("[✓]", "green"), ansi.Color(msg, "blue"), ansi.ColorCode("reset"))
-}
-
-func (gen *Generator) errorMessage(msg string) {
-	fmt.Println(ansi.Color("[✗]", "red"), ansi.Color(msg, "blue"), ansi.ColorCode("reset"))
+	fmt.Println(ansi.Color("[✓]", "green"), ansi.Color(msg, "white"), ansi.ColorCode("reset"))
 }
 
 func (gen *Generator) Generate() error {
 	// Genereates the folder structure
-	err := gen.generateFolderStructure()
-	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error generating folder structure: %s", err))
-	}
-	gen.successMessage("Generated folder structure...")
-
 	// Execute `go mod init <module-name>`
-	err = gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
+	err := gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
 	if err != nil {
 		fmt.Println("Error executing `go mod init` command: ", err)
 	}
 	gen.successMessage(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
 
+	err = gen.generateFolderStructure()
+	if err != nil {
+		utils.PrintError("Error generating folder structure: %s", err)
+	}
+	gen.successMessage("Generated folder structure...")
+
 	// Copies over the proper logger and ensures any errors are handled with that logger
-	gen.useLogger()
-	gen.successMessage(fmt.Sprintf("Using logger: %s", gen.logger))
+	gen.loggers[gen.settings.Logger].Service()
+	gen.successMessage(fmt.Sprintf("Using logger: %s", gen.settings.Logger))
 
 	// Generates the cmd/main.go file
 	err = gen.generateMainFile()
 	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error generating main.go file: %s", err))
+		utils.PrintError("generating main.go file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated main.go file")
@@ -94,7 +93,7 @@ func (gen *Generator) Generate() error {
 	// Generates the internal/app/app.go file
 	err = gen.createInternalAppFile()
 	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error generating app.go file: %s", err))
+		utils.PrintError("generating app.go file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated app.go file")
@@ -102,13 +101,13 @@ func (gen *Generator) Generate() error {
 	// Generates the internal/config/config.go file
 	err = gen.createConfigGoFile()
 	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error generating config.go file: %s", err))
+		utils.PrintError("generating config.go file: %s", err)
 		return err
 	}
 
 	err = gen.createConfigYamlFile()
 	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error generating config.yaml file: %s", err))
+		utils.PrintError("generating config.yaml file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated config files")
@@ -116,14 +115,14 @@ func (gen *Generator) Generate() error {
 	// Copies the files from the adapters folder to the project
 	err = gen.copyFiles()
 	if err != nil {
-		gen.errorMessage(fmt.Sprintf("Error copying files from adapters folder: %s", err))
+		utils.PrintError("Error copying files from adapters folder: %s", err)
 		return err
 	}
 	gen.successMessage("Copied files from adapters folder...")
 
 	err = gen.executeCommand(exec.Command("go", "mod", "tidy"))
 	if err != nil {
-		return fmt.Errorf("error executing `go mod tidy` command: %s", err)
+		return err
 	}
 	gen.successMessage("Executed `go mod tidy`")
 
@@ -161,6 +160,9 @@ func (gen *Generator) generateFolderStructure() error {
 		},
 	}
 
+	// Append the adapters to the pkg directory
+	directories["pkg"] = append(directories["pkg"], gen.settings.Adapters...)
+
 	// Loop through the map and create directories and sub-directories
 	for parentDir, subDirs := range directories {
 		if _, err := os.Stat(gen.settings.Path + "/" + parentDir); os.IsNotExist(err) {
@@ -181,13 +183,6 @@ func (gen *Generator) generateFolderStructure() error {
 	}
 
 	return nil
-}
-
-func (gen *Generator) useLogger() {
-	if gen.logger == "zap" {
-		// Copy the zap logger to the project
-		gen.copyFileToFolder("pkg/templates/logger/zap.go", gen.settings.Path+"/pkg/logger")
-	}
 }
 
 func (gen *Generator) generateMainFile() error {
@@ -392,8 +387,11 @@ func (gen *Generator) createConfigYamlFile() error {
 func (gen *Generator) copyFiles() error {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			err := gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
+			f := adapter.Service()
+			err := f.Save(gen.settings.Path + "/pkg/" + adapter.GetName() + "/service.go")
+			// err := gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
 			if err != nil {
+				fmt.Println("ERROR HERE IDIOT")
 				return err
 			}
 		}
@@ -404,36 +402,6 @@ func (gen *Generator) copyFiles() error {
 			gen.copyFileToFolder("internal/templates/services/"+service.GetName()+"/service.go", gen.settings.Path+"/pkg/"+service.GetName())
 		}
 	} */
-
-	return nil
-}
-
-func (gen *Generator) copyFileToFolder(sourceFile, destinationFolder string) error {
-	// Open the source file
-	src, err := os.Open(sourceFile)
-	if err != nil {
-		return fmt.Errorf("error opening source file: %s", err)
-	}
-	defer src.Close()
-
-	// Create the destination folder if it doesn't exist
-	if _, err := os.Stat(destinationFolder); os.IsNotExist(err) {
-		os.MkdirAll(destinationFolder, 0755)
-	}
-
-	// Create the destination file
-	destinationFile := destinationFolder + "/" + filepath.Base(sourceFile)
-	dst, err := os.Create(destinationFile)
-	if err != nil {
-		return fmt.Errorf("error creating destination file: %s", err)
-	}
-	defer dst.Close()
-
-	// Copy the contents of the source file to the destination file
-	_, err = io.Copy(dst, src)
-	if err != nil {
-		return fmt.Errorf("error copying source file to destination file: %s", err)
-	}
 
 	return nil
 }

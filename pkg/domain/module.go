@@ -16,10 +16,31 @@ type ModuleI interface {
 	AppInit() []j.Code
 	// AppInit is the code that will be added to the END internal/app/app.go Run() function
 	AppShutdown() []j.Code
+	// Service is the code that will be added to its own `pkg` folder
+	Service() *j.File
+}
+
+type Adapter struct {
+	name string
+	*Settings
+}
+
+type AdapterI interface {
+	GetName() string
+	GetSettings() *Settings
+}
+
+func (adp *Adapter) GetName() string {
+	return adp.name
+}
+
+func (adp *Adapter) GetSettings() *Settings {
+	return adp.Settings
 }
 
 type Settings struct {
 	Path        string   // Path to the module
+	Logger      string   // Logger name
 	Module      string   // Module name
 	Adapters    []string // Enabled adapters
 	Services    []string // Enabled services
