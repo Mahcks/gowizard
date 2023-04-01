@@ -2,6 +2,7 @@ package generator
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,11 +16,11 @@ import (
 	"github.com/mahcks/gowizard/pkg/domain"
 	adapterTemplates "github.com/mahcks/gowizard/pkg/templates/adapters"
 	loggerTemplates "github.com/mahcks/gowizard/pkg/templates/logger"
-	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type Generator struct {
 	settings    *domain.Settings
+	directories map[string][]string
 	adapters    map[string]domain.ModuleI
 	controllers map[string]domain.ModuleI
 	loggers     map[string]domain.ModuleI
@@ -71,19 +72,18 @@ func (gen *Generator) Generate() error {
 	// Execute `go mod init <module-name>`
 	err := gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
 	if err != nil {
-		fmt.Println("Error executing `go mod init` command: ", err)
+		return err
 	}
 	gen.successMessage(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
 
 	err = gen.setModuleVersion()
 	if err != nil {
-		utils.PrintError("Error setting module version: %s", err)
 		return err
 	}
 
 	err = gen.generateFolderStructure()
 	if err != nil {
-		utils.PrintError("Error generating folder structure: %s", err)
+		return err
 	}
 	gen.successMessage("Generated folder structure...")
 
@@ -94,7 +94,6 @@ func (gen *Generator) Generate() error {
 	// Generates the cmd/main.go file
 	err = gen.generateMainFile()
 	if err != nil {
-		utils.PrintError("generating main.go file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated main.go file")
@@ -102,7 +101,6 @@ func (gen *Generator) Generate() error {
 	// Generates the internal/app/app.go file
 	err = gen.createInternalAppFile()
 	if err != nil {
-		utils.PrintError("generating app.go file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated app.go file")
@@ -110,21 +108,23 @@ func (gen *Generator) Generate() error {
 	// Generates the internal/config/config.go file
 	err = gen.createConfigGoFile()
 	if err != nil {
-		utils.PrintError("generating config.go file: %s", err)
 		return err
 	}
 
 	err = gen.createConfigYamlFile()
 	if err != nil {
-		utils.PrintError("generating config.yaml file: %s", err)
 		return err
 	}
 	gen.successMessage("Generated config files")
 
+	err = errors.New("Random error")
+	if err != nil {
+		return err
+	}
+
 	// Copies the files from the adapters folder to the project
 	err = gen.copyFiles()
 	if err != nil {
-		utils.PrintError("Error copying files from adapters folder: %s", err)
 		return err
 	}
 	gen.successMessage("Copied files from adapters folder...")
@@ -136,6 +136,24 @@ func (gen *Generator) Generate() error {
 	gen.successMessage("Executed `go mod tidy`")
 
 	fmt.Println(ansi.Color("Done!", "green+b"))
+
+	return nil
+}
+
+// Rollback removes all the files and folders that were created during the generation process
+func (gen *Generator) Rollback() error {
+	for dir := range gen.directories {
+		if err := os.RemoveAll(gen.settings.Path + "/" + dir); err != nil {
+			return err
+		}
+	}
+
+	err := os.Remove(gen.settings.Path + "/go.mod")
+	if err != nil {
+		return err
+	}
+
+	gen.successMessage("Rolled back changes due to error")
 
 	return nil
 }
@@ -217,6 +235,7 @@ func (gen *Generator) generateFolderStructure() error {
 
 	// Append the adapters to the pkg directory
 	directories["pkg"] = append(directories["pkg"], gen.settings.Adapters...)
+	gen.directories = directories
 
 	// Loop through the map and create directories and sub-directories
 	for parentDir, subDirs := range directories {

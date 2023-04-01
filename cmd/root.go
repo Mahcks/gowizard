@@ -125,6 +125,11 @@ gowizard generate --module github.com/username/module --path /path/to/module --a
 		err = gen.Generate()
 		if err != nil {
 			fmt.Println(err.Error())
+
+			errRollback := gen.Rollback()
+			if errRollback != nil {
+				utils.PrintError("error rolling back: %s", errRollback)
+			}
 			return
 		}
 	},
