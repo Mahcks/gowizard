@@ -15,6 +15,12 @@ import (
 
 var cfgFile string
 
+var (
+	Version         = "0.1.0"
+	versionTemplate = `gowizard: v{{.Version}}
+`
+)
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "gowizard",
@@ -135,6 +141,9 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+
+	rootCmd.Version = Version
+	rootCmd.SetVersionTemplate(versionTemplate)
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gowizard.yaml)")
 }
