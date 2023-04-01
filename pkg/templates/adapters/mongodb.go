@@ -22,12 +22,14 @@ func NewMongoDBAdapter(settings *domain.Settings) domain.ModuleI {
 	}
 }
 
+// ConfigYAML is the configuration of the adapter in YAML format
 func (m *MongoDBAdapter) ConfigGo() *j.Statement {
 	return j.Id("MongoDB").Struct(
 		j.Id("URI").String().Tag(map[string]string{"mapstructure": "uri", "json": "uri"}),
 	).Tag(map[string]string{"mapstructure": "mongodb", "json": "mongodb"})
 }
 
+// ConfigGo is the configuration of the adapter in Go format
 func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"mongodb": map[string]interface{}{
@@ -36,6 +38,7 @@ func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 	}
 }
 
+// AppInit is the code that will be added to the END internal/app/app.go Run() function
 func (m *MongoDBAdapter) AppInit() []j.Code {
 	return []j.Code{
 		j.Line(),
@@ -50,6 +53,7 @@ func (m *MongoDBAdapter) AppInit() []j.Code {
 	}
 }
 
+// AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (m *MongoDBAdapter) AppShutdown() []j.Code {
 	return []j.Code{
 		j.Line(),
@@ -57,6 +61,7 @@ func (m *MongoDBAdapter) AppShutdown() []j.Code {
 	}
 }
 
+// Service is the code that will be added to its own `pkg` folder
 func (a *MongoDBAdapter) Service() *j.File {
 	f := j.NewFilePathName(a.Settings.Module+"/pkg/mongodb", "mongodb")
 

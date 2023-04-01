@@ -1,8 +1,10 @@
 # gowizard
 Let a wizard guide you through your Go module set up quickly.
-![Gopher Wizard](wizard.png)
 
 > This project is still in development so use at your own risk!
+
+![Gopher Wizard](wizard.png)
+
 
 ## Installation
 ```bash

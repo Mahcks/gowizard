@@ -22,14 +22,7 @@ func NewRedisAdapter(settings *domain.Settings) domain.ModuleI {
 	}
 }
 
-func (a *RedisAdapter) ConfigGo() *j.Statement {
-	return j.Id("Redis").Struct(
-		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
-		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
-		j.Id("Password").String().Tag(map[string]string{"mapstructure": "password", "json": "password"}),
-	).Tag(map[string]string{"mapstructure": "redis", "json": "redis"})
-}
-
+// ConfigYAML is the configuration of the adapter in YAML format
 func (a *RedisAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"redis": map[string]interface{}{
@@ -40,6 +33,16 @@ func (a *RedisAdapter) ConfigYAML() map[string]interface{} {
 	}
 }
 
+// ConfigGo is the configuration of the adapter in Go format
+func (a *RedisAdapter) ConfigGo() *j.Statement {
+	return j.Id("Redis").Struct(
+		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
+		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
+		j.Id("Password").String().Tag(map[string]string{"mapstructure": "password", "json": "password"}),
+	).Tag(map[string]string{"mapstructure": "redis", "json": "redis"})
+}
+
+// AppInit is the code that will be added to the START internal/app/app.go Run() function
 func (a *RedisAdapter) AppInit() []j.Code {
 	return []j.Code{
 		j.Line(),
@@ -54,6 +57,7 @@ func (a *RedisAdapter) AppInit() []j.Code {
 	}
 }
 
+// AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (a *RedisAdapter) AppShutdown() []j.Code {
 	return []j.Code{
 		j.Line(),
@@ -61,6 +65,7 @@ func (a *RedisAdapter) AppShutdown() []j.Code {
 	}
 }
 
+// Service is the code that will be added to its own `pkg` folder
 func (a *RedisAdapter) Service() *j.File {
 	f := j.NewFilePathName(a.Settings.Module+"/pkg/redis", "redis")
 

@@ -13,6 +13,7 @@ type ZapLogger struct {
 	*domain.Settings        // settings of the project
 }
 
+// GetName returns the name of the logger
 func (l *ZapLogger) GetName() string {
 	return l.name
 }
@@ -24,22 +25,27 @@ func NewZapLogger(settings *domain.Settings) domain.ModuleI {
 	}
 }
 
-func (l *ZapLogger) ConfigGo() *j.Statement {
-	return nil
-}
-
+// ConfigYAML is the configuration of the logger in YAML format
 func (m *ZapLogger) ConfigYAML() map[string]interface{} {
 	return nil
 }
 
+// ConfigGo is the configuration of the logger in Go format
+func (l *ZapLogger) ConfigGo() *j.Statement {
+	return nil
+}
+
+// AppInit is the code that will be added to the START internal/app/app.go Run() function
 func (m *ZapLogger) AppInit() []j.Code {
 	return nil
 }
 
+// AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (m *ZapLogger) AppShutdown() []j.Code {
 	return nil
 }
 
+// Service is the code that will be added to its own `pkg` folder
 func (a *ZapLogger) Service() *j.File {
 	f := j.NewFilePathName(a.Settings.Module+"/pkg/logger", "zap")
 

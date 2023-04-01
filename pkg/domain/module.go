@@ -20,24 +20,6 @@ type ModuleI interface {
 	Service() *j.File
 }
 
-type Adapter struct {
-	name string
-	*Settings
-}
-
-type AdapterI interface {
-	GetName() string
-	GetSettings() *Settings
-}
-
-func (adp *Adapter) GetName() string {
-	return adp.name
-}
-
-func (adp *Adapter) GetSettings() *Settings {
-	return adp.Settings
-}
-
 type Settings struct {
 	Path          string   // Path to the module
 	Logger        string   // Logger name

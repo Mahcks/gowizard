@@ -6,10 +6,11 @@ import (
 )
 
 type MariaDBAdapter struct {
-	name string
-	*domain.Settings
+	name             string // name of the adapter
+	*domain.Settings        // settings of the project
 }
 
+// GetName returns the name of the adapter
 func (adp *MariaDBAdapter) GetName() string {
 	return adp.name
 }
@@ -21,16 +22,7 @@ func NewMariaDBAdapter(settings *domain.Settings) domain.ModuleI {
 	}
 }
 
-func (adp *MariaDBAdapter) ConfigGo() *j.Statement {
-	return j.Id("MariaDB").Struct(
-		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
-		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
-		j.Id("Username").String().Tag(map[string]string{"mapstructure": "username", "json": "username"}),
-		j.Id("Password").String().Tag(map[string]string{"mapstructure": "password", "json": "password"}),
-		j.Id("Database").String().Tag(map[string]string{"mapstructure": "database", "json": "database"}),
-	).Tag(map[string]string{"mapstructure": "mariadb", "json": "mariadb"})
-}
-
+// ConfigYAML is the configuration of the adapter in YAML format
 func (m *MariaDBAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"mariadb": map[string]interface{}{
@@ -43,6 +35,18 @@ func (m *MariaDBAdapter) ConfigYAML() map[string]interface{} {
 	}
 }
 
+// ConfigGo is the configuration of the adapter in Go format
+func (adp *MariaDBAdapter) ConfigGo() *j.Statement {
+	return j.Id("MariaDB").Struct(
+		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
+		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
+		j.Id("Username").String().Tag(map[string]string{"mapstructure": "username", "json": "username"}),
+		j.Id("Password").String().Tag(map[string]string{"mapstructure": "password", "json": "password"}),
+		j.Id("Database").String().Tag(map[string]string{"mapstructure": "database", "json": "database"}),
+	).Tag(map[string]string{"mapstructure": "mariadb", "json": "mariadb"})
+}
+
+// AppInit is the code that will be added to the START internal/app/app.go Run() function
 func (adp *MariaDBAdapter) AppInit() []j.Code {
 	return []j.Code{
 		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(adp.Module+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
@@ -56,6 +60,7 @@ func (adp *MariaDBAdapter) AppInit() []j.Code {
 	}
 }
 
+// AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (adp *MariaDBAdapter) AppShutdown() []j.Code {
 	return []j.Code{
 		j.Line(),
@@ -63,6 +68,7 @@ func (adp *MariaDBAdapter) AppShutdown() []j.Code {
 	}
 }
 
+// Service is the code that will be added to its own `pkg` folder
 func (adp *MariaDBAdapter) Service() *j.File {
 	f := j.NewFilePathName(adp.Settings.Module+"/pkg/mariadb", "mariadb")
 
