@@ -1,4 +1,4 @@
-.PHONY: run
+.PHONY: run, clean
 
 MODULE := github.com/someone/module
 MODULE_PATH := /module/path/somewhere
@@ -13,6 +13,3 @@ run:
 
 clean:
 	rm -rf $(MODULE_PATH)/*
-
-comma:=,
-space:=\ 

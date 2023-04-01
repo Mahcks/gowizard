@@ -39,12 +39,13 @@ func (adp *Adapter) GetSettings() *Settings {
 }
 
 type Settings struct {
-	Path        string   // Path to the module
-	Logger      string   // Logger name
-	Module      string   // Module name
-	Adapters    []string // Enabled adapters
-	Services    []string // Enabled services
-	Controllers []string // Enabled controllers
+	Path          string   // Path to the module
+	Logger        string   // Logger name
+	Module        string   // Module name
+	ModuleVersion string   // Go module version
+	Adapters      []string // Enabled adapters
+	Services      []string // Enabled services
+	Controllers   []string // Enabled controllers
 }
 
 // IsAdapterChecked checks if the adapter is enabled

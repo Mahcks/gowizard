@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"io/ioutil"
+	"os/exec"
 	"strings"
 
 	"github.com/mgutz/ansi"
@@ -29,4 +30,14 @@ func IsDirEmpty(path string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func GetGoVersion() (string, error) {
+	cmdVersion := exec.Command("sh", "-c", "go version | awk '{print $3}' | cut -c 3-6")
+	output, err := cmdVersion.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return strings.TrimSpace(string(output)), nil
 }

@@ -1,10 +1,12 @@
 package generator
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/mgutz/ansi"
@@ -26,12 +28,13 @@ type Generator struct {
 
 var ptr = Op("*")
 
-func NewGenerator(moduleName, path string, enabledAdapters, enabledServices []string) *Generator {
+func NewGenerator(moduleName, moduleVersion, path string, enabledAdapters, enabledServices []string) *Generator {
 	settings := &domain.Settings{
-		Path:     path,
-		Logger:   "zap",
-		Module:   moduleName,
-		Adapters: enabledAdapters,
+		Module:        moduleName,
+		ModuleVersion: moduleVersion,
+		Path:          path,
+		Logger:        "zap",
+		Adapters:      enabledAdapters,
 		// Services: enabledServices,
 	}
 
@@ -71,6 +74,12 @@ func (gen *Generator) Generate() error {
 		fmt.Println("Error executing `go mod init` command: ", err)
 	}
 	gen.successMessage(fmt.Sprintf("Executed `go mod init %s`", gen.settings.Module))
+
+	err = gen.setModuleVersion()
+	if err != nil {
+		utils.PrintError("Error setting module version: %s", err)
+		return err
+	}
 
 	err = gen.generateFolderStructure()
 	if err != nil {
@@ -127,6 +136,52 @@ func (gen *Generator) Generate() error {
 	gen.successMessage("Executed `go mod tidy`")
 
 	fmt.Println(ansi.Color("Done!", "green+b"))
+
+	return nil
+}
+
+func (gen *Generator) setModuleVersion() error {
+	// Open the go.mod file for reading
+	file, err := os.Open("go.mod")
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Create a temporary file for writing the updated contents
+	tmpFile, err := os.Create("go.mod.tmp")
+	if err != nil {
+		return err
+	}
+	defer tmpFile.Close()
+
+	// Read the file line by line
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		// Check if the line starts with "go " and update the version if it does
+		if strings.HasPrefix(line, "go ") {
+			line = "go " + gen.settings.ModuleVersion
+		}
+
+		// Write the updated line to the temporary file
+		_, err := tmpFile.WriteString(line + "\n")
+		if err != nil {
+			return err
+		}
+	}
+
+	// Check for any errors during scanning
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// Replace the original file with the updated temporary file
+	err = os.Rename("go.mod.tmp", "go.mod")
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

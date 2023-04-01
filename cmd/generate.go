@@ -53,7 +53,7 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		gen := generator.NewGenerator(moduleName, path, adapters, []string{})
+		gen := generator.NewGenerator(moduleName, "1.20", path, adapters, []string{})
 		err = gen.Generate()
 		if err != nil {
 			utils.PrintError("error generating project: %v", err)
@@ -65,8 +65,16 @@ var generateCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(generateCmd)
 
+	// Get the current version of Go on the users system
+	cmdVersion, err := utils.GetGoVersion()
+	if err != nil {
+		utils.PrintError("error getting Go version: %s", err)
+		return
+	}
+
 	generateCmd.Flags().StringP("module", "m", "", "Name of the module")
 	generateCmd.Flags().StringP("path", "p", "./", "Path to the module")
+	generateCmd.Flags().StringP("go-version", "v", cmdVersion, "Go version to use - defaults to your latest installed version")
 
 	generateCmd.Flags().StringSliceP("adapter", "a", []string{}, "Add an adapter to the project, i.e. mariadb, redis")
 }

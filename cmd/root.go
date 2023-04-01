@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/mgutz/ansi"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -44,6 +43,25 @@ gowizard generate --module github.com/username/module --path /path/to/module --a
 			return
 		}
 
+		// Get the current version of Go on the users system
+		cmdVersion, err := utils.GetGoVersion()
+		if err != nil {
+			utils.PrintError("error getting Go version: %s", err)
+			return
+		}
+
+		// Ask for what version of Go to use
+		goVersion := ""
+		prompt = &survey.Input{
+			Message: "What version of Go would you like to use?",
+			Default: cmdVersion,
+		}
+		err = survey.AskOne(prompt, &goVersion, iconStyles, survey.WithValidator(survey.Required))
+		if err != nil {
+			fmt.Println(err.Error())
+			return
+		}
+
 		// Ask for module path
 		path := ""
 		prompt = &survey.Input{
@@ -76,7 +94,7 @@ gowizard generate --module github.com/username/module --path /path/to/module --a
 		isDirEmpty, err := utils.IsDirEmpty(path)
 
 		if !isDirEmpty {
-			fmt.Println(ansi.Color(fmt.Sprintf(`[✗] Error: directory "%s" is not empty`, path), "red"), ansi.ColorCode("reset"))
+			utils.PrintError(`directory "%s" is not empty`, path)
 			return
 		}
 
@@ -97,7 +115,7 @@ gowizard generate --module github.com/username/module --path /path/to/module --a
 			adapters[i] = strings.ToLower(adapter)
 		}
 
-		gen := generator.NewGenerator(module, path, adapters, []string{})
+		gen := generator.NewGenerator(module, goVersion, path, adapters, []string{})
 		err = gen.Generate()
 		if err != nil {
 			fmt.Println(err.Error())
@@ -118,15 +136,7 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports persistent flags, which, if defined here,
-	// will be global for your application.
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gowizard.yaml)")
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
