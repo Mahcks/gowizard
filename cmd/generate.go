@@ -56,7 +56,7 @@ var generateCmd = &cobra.Command{
 		gen := generator.NewGenerator(moduleName, "1.20", path, adapters, []string{})
 		err = gen.Generate()
 		if err != nil {
-			utils.PrintError("error generating project: %s", err)
+			utils.PrintError("%s", err)
 
 			errRollback := gen.Rollback()
 			if errRollback != nil {

@@ -80,6 +80,7 @@ func (gen *Generator) Generate() error {
 	if err != nil {
 		return err
 	}
+	gen.successMessage(fmt.Sprintf("Set module version to %s", gen.settings.ModuleVersion))
 
 	err = gen.generateFolderStructure()
 	if err != nil {
