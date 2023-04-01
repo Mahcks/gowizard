@@ -1,16 +1,13 @@
 package logger
 
 import (
-	"fmt"
-
 	j "github.com/dave/jennifer/jen"
 
 	"github.com/mahcks/gowizard/pkg/domain"
 )
 
 type ZapLogger struct {
-	name             string // name of the logger
-	*domain.Settings        // settings of the project
+	name string // name of the logger
 }
 
 // GetName returns the name of the logger
@@ -18,10 +15,9 @@ func (l *ZapLogger) GetName() string {
 	return l.name
 }
 
-func NewZapLogger(settings *domain.Settings) domain.ModuleI {
+func NewZapLogger() domain.ModuleI {
 	return &ZapLogger{
-		name:     "zap",
-		Settings: settings,
+		name: "zap",
 	}
 }
 
@@ -36,7 +32,7 @@ func (l *ZapLogger) ConfigGo() *j.Statement {
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (m *ZapLogger) AppInit() []j.Code {
+func (m *ZapLogger) AppInit(module string) []j.Code {
 	return nil
 }
 
@@ -46,8 +42,8 @@ func (m *ZapLogger) AppShutdown() []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (a *ZapLogger) Service() *j.File {
-	f := j.NewFilePathName(a.Settings.Module+"/pkg/logger", "zap")
+func (a *ZapLogger) Service(module string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/logger", "zap")
 
 	f.Func().Id("New").Params(j.Id("level").String()).Error().Block(
 		j.Qual("log", "SetOutput").Call(j.Qual("io", "Discard")),
@@ -89,10 +85,5 @@ func (a *ZapLogger) Service() *j.File {
 		j.Return(j.Nil()),
 	)
 
-	err := f.Save(a.Settings.Path + "/pkg/logger/zap.go")
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	return nil
+	return f
 }

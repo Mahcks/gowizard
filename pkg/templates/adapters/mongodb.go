@@ -3,11 +3,11 @@ package adapters
 import (
 	j "github.com/dave/jennifer/jen"
 	"github.com/mahcks/gowizard/pkg/domain"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type MongoDBAdapter struct {
-	name             string // name of the adapter
-	*domain.Settings        // settings of the project
+	name string // name of the adapter
 }
 
 // GetName returns the name of the adapter
@@ -15,10 +15,9 @@ func (a *MongoDBAdapter) GetName() string {
 	return a.name
 }
 
-func NewMongoDBAdapter(settings *domain.Settings) domain.ModuleI {
+func NewMongoDBAdapter() domain.ModuleI {
 	return &MongoDBAdapter{
-		name:     "mongodb",
-		Settings: settings,
+		name: "mongodb",
 	}
 }
 
@@ -39,10 +38,10 @@ func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 }
 
 // AppInit is the code that will be added to the END internal/app/app.go Run() function
-func (m *MongoDBAdapter) AppInit() []j.Code {
+func (m *MongoDBAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
-		j.List(j.Id("mongodb"), j.Err()).Op(":=").Qual(m.Module+"/pkg/mongodb", "New").Params(j.Id("gCtx"), j.Id("cfg.MongoDB.URI")).Op(";"),
+		j.List(j.Id("mongodb"), j.Err()).Op(":=").Qual(module+"/pkg/mongodb", "New").Params(j.Id("gCtx"), j.Id("cfg.MongoDB.URI")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - mongodb.New"), j.Lit("error"), j.Id("err")),
 		),
@@ -62,14 +61,13 @@ func (m *MongoDBAdapter) AppShutdown() []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (a *MongoDBAdapter) Service() *j.File {
-	f := j.NewFilePathName(a.Settings.Module+"/pkg/mongodb", "mongodb")
+func (a *MongoDBAdapter) Service(module string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/mongodb", "mongodb")
 
 	// Service struct
-	ptr := j.Op("*")
 	sStruct := j.Type().Id("MongoDB").Struct(
 		j.Id("ctx").Qual("context", "Context"),
-		j.Id("Client").Add(ptr).Qual("go.mongodb.org/mongo-driver/mongo", "Client"),
+		j.Id("Client").Add(utils.Jptr).Qual("go.mongodb.org/mongo-driver/mongo", "Client"),
 	)
 
 	f.Add(sStruct)

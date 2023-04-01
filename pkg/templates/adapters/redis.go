@@ -3,11 +3,11 @@ package adapters
 import (
 	j "github.com/dave/jennifer/jen"
 	"github.com/mahcks/gowizard/pkg/domain"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type RedisAdapter struct {
-	name             string // name of the adapter
-	*domain.Settings        // settings of the project
+	name string // name of the adapter
 }
 
 // GetName returns the name of the adapter
@@ -15,10 +15,9 @@ func (a *RedisAdapter) GetName() string {
 	return a.name
 }
 
-func NewRedisAdapter(settings *domain.Settings) domain.ModuleI {
+func NewRedisAdapter() domain.ModuleI {
 	return &RedisAdapter{
-		name:     "redis",
-		Settings: settings,
+		name: "redis",
 	}
 }
 
@@ -43,10 +42,10 @@ func (a *RedisAdapter) ConfigGo() *j.Statement {
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (a *RedisAdapter) AppInit() []j.Code {
+func (a *RedisAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
-		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(a.Module+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
+		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(module+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - redis.New"), j.Lit("error"), j.Id("err")),
 		),
@@ -66,13 +65,12 @@ func (a *RedisAdapter) AppShutdown() []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (a *RedisAdapter) Service() *j.File {
-	f := j.NewFilePathName(a.Settings.Module+"/pkg/redis", "redis")
+func (a *RedisAdapter) Service(module string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/redis", "redis")
 
 	// Service struct
-	ptr := j.Op("*")
 	sStruct := j.Type().Id("Redis").Struct(
-		j.Id("Client").Add(ptr).Qual("github.com/go-redis/redis/v8", "Client"),
+		j.Id("Client").Add(utils.Jptr).Qual("github.com/go-redis/redis/v8", "Client"),
 	)
 
 	f.Add(sStruct)

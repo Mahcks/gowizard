@@ -4,9 +4,10 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"strings"
 
 	. "github.com/dave/jennifer/jen"
@@ -16,51 +17,110 @@ import (
 	"github.com/mahcks/gowizard/pkg/domain"
 	adapterTemplates "github.com/mahcks/gowizard/pkg/templates/adapters"
 	loggerTemplates "github.com/mahcks/gowizard/pkg/templates/logger"
+	repoTemplates "github.com/mahcks/gowizard/pkg/templates/repos"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type Generator struct {
 	settings    *domain.Settings
+	useTemplate bool // use a template for the module instead of generating from scratch
 	directories map[string][]string
 	adapters    map[string]domain.ModuleI
 	controllers map[string]domain.ModuleI
 	loggers     map[string]domain.ModuleI
-	// services    map[string]domain.ModuleI
+	services    map[string]domain.ModuleI
+	templates   map[string]domain.TemplateI
 }
 
-var ptr = Op("*")
-
 func NewGenerator(moduleName, moduleVersion, path string, enabledAdapters, enabledServices []string) *Generator {
+	// User settings from CLI survey
 	settings := &domain.Settings{
 		Module:        moduleName,
 		ModuleVersion: moduleVersion,
 		Path:          path,
 		Logger:        "zap",
 		Adapters:      enabledAdapters,
-		// Services: enabledServices,
+		Services:      enabledServices,
 	}
 
+	// Register loggers here
 	loggers := map[string]domain.ModuleI{
-		"zap": loggerTemplates.NewZapLogger(settings),
+		"zap": loggerTemplates.NewZapLogger(),
 	}
 
+	// Register adapters here
 	adapters := map[string]domain.ModuleI{
-		"mariadb": adapterTemplates.NewMariaDBAdapter(settings),
-		"redis":   adapterTemplates.NewRedisAdapter(settings),
-		"mongodb": adapterTemplates.NewMongoDBAdapter(settings),
+		"mariadb": adapterTemplates.NewMariaDBAdapter(),
+		"redis":   adapterTemplates.NewRedisAdapter(),
+		"mongodb": adapterTemplates.NewMongoDBAdapter(),
 	}
 
-	/* services := map[string]domain.ModuleI{
-		"fasthttpserver": fasthttpServer.NewService("fasthttpserver", settings),
-	} */
-
-	gen := &Generator{
-		settings: settings,
-		adapters: adapters,
-		// services: services,
-		loggers: loggers,
+	// Register templates here
+	templates := map[string]domain.TemplateI{
+		"github.com/evrone/go-clean-template": repoTemplates.NewGoCleanTemplateRepo(),
+		"github.com/thangchung/go-coffeeshop": repoTemplates.NewGoCoffeshopRepo(),
 	}
 
-	return gen
+	return &Generator{
+		settings:  settings,
+		adapters:  adapters,
+		templates: templates,
+		loggers:   loggers,
+	}
+}
+
+// UseTemplate - Use a template to generate the module
+func (gen *Generator) UseTemplate(template string) error {
+	// Flag used to determine various edge cases
+	gen.useTemplate = true
+
+	// Check if the template exists
+	if _, ok := gen.templates[template]; !ok {
+		return fmt.Errorf("template %s does not exist", template)
+	}
+
+	foundTemplate := gen.templates[template]
+
+	// Clone repo to target path
+	err := gen.executeCommand(fmt.Sprintf("git clone %s .", fmt.Sprintf("https://%s.git", foundTemplate.GetName())))
+	if err != nil {
+		return err
+	}
+	gen.successMessage(fmt.Sprintf("Cloned %s", foundTemplate.GetName()))
+
+	// Remove .git folder
+	err = os.RemoveAll(gen.settings.Path + "/.git")
+	if err != nil {
+		return err
+	}
+
+	err = gen.setModuleVersion()
+	if err != nil {
+		return err
+	}
+	gen.successMessage(fmt.Sprintf("Set module version to %s and module name to %s", gen.settings.ModuleVersion, gen.settings.Module))
+
+	// Execute the setup code for the specific template
+	err = foundTemplate.Setup(gen.settings.Path)
+	if err != nil {
+		return err
+	}
+	gen.successMessage("Setup template...")
+
+	// Walk files and update imports to new module name
+	err = gen.replaceImports(template)
+	if err != nil {
+		return err
+	}
+	gen.successMessage("Updated imports...")
+
+	fmt.Println(ansi.Color("Done!", "green+b"), fmt.Sprintf("\033[3m%s\033[0m", utils.GetRandomPhrase()))
+
+	return nil
+}
+
+func (gen *Generator) GetTemplates() map[string]domain.TemplateI {
+	return gen.templates
 }
 
 func (gen *Generator) successMessage(msg string) {
@@ -70,7 +130,7 @@ func (gen *Generator) successMessage(msg string) {
 func (gen *Generator) Generate() error {
 	// Genereates the folder structure
 	// Execute `go mod init <module-name>`
-	err := gen.executeCommand(exec.Command("go", "mod", "init", gen.settings.Module))
+	err := gen.executeCommand(fmt.Sprintf("go mod init %s", gen.settings.Module))
 	if err != nil {
 		return err
 	}
@@ -89,7 +149,7 @@ func (gen *Generator) Generate() error {
 	gen.successMessage("Generated folder structure...")
 
 	// Copies over the proper logger and ensures any errors are handled with that logger
-	gen.loggers[gen.settings.Logger].Service()
+	gen.loggers[gen.settings.Logger].Service(gen.settings.Module)
 	gen.successMessage(fmt.Sprintf("Using logger: %s", gen.settings.Logger))
 
 	// Generates the cmd/main.go file
@@ -118,11 +178,6 @@ func (gen *Generator) Generate() error {
 	}
 	gen.successMessage("Generated config files")
 
-	err = errors.New("Random error")
-	if err != nil {
-		return err
-	}
-
 	// Copies the files from the adapters folder to the project
 	err = gen.copyFiles()
 	if err != nil {
@@ -130,13 +185,13 @@ func (gen *Generator) Generate() error {
 	}
 	gen.successMessage("Copied files from adapters folder...")
 
-	err = gen.executeCommand(exec.Command("go", "mod", "tidy"))
+	err = gen.executeCommand("go mod tidy")
 	if err != nil {
 		return err
 	}
 	gen.successMessage("Executed `go mod tidy`")
 
-	fmt.Println(ansi.Color("Done!", "green+b"))
+	fmt.Println(ansi.Color("Done!", "green+b"), fmt.Sprintf("\033[3m%s\033[0m", utils.GetRandomPhrase()))
 
 	return nil
 }
@@ -161,14 +216,14 @@ func (gen *Generator) Rollback() error {
 
 func (gen *Generator) setModuleVersion() error {
 	// Open the go.mod file for reading
-	file, err := os.Open("go.mod")
+	file, err := os.Open(path.Join(gen.settings.Path, "go.mod"))
 	if err != nil {
 		return err
 	}
 	defer file.Close()
 
 	// Create a temporary file for writing the updated contents
-	tmpFile, err := os.Create("go.mod.tmp")
+	tmpFile, err := os.Create(path.Join(gen.settings.Path, "go.mod.tmp"))
 	if err != nil {
 		return err
 	}
@@ -178,6 +233,14 @@ func (gen *Generator) setModuleVersion() error {
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		line := scanner.Text()
+
+		// Since it's a template, it'll be using the module that was cloned from the repo
+		if gen.useTemplate {
+			// Check if the line starts with "module " and update the module name if it does
+			if strings.HasPrefix(line, "module ") {
+				line = "module " + gen.settings.Module
+			}
+		}
 
 		// Check if the line starts with "go " and update the version if it does
 		if strings.HasPrefix(line, "go ") {
@@ -197,7 +260,57 @@ func (gen *Generator) setModuleVersion() error {
 	}
 
 	// Replace the original file with the updated temporary file
-	err = os.Rename("go.mod.tmp", "go.mod")
+	err = os.Rename(path.Join(gen.settings.Path, "go.mod.tmp"), path.Join(gen.settings.Path, "go.mod"))
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// replaceImports - Replaces imports for template projects
+func (gen *Generator) replaceImports(template string) error {
+	// Walk through all directories and files in the project
+	err := filepath.Walk(gen.settings.Path, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Only check files, ignore directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Check if the file is a Go file
+		if filepath.Ext(path) != ".go" {
+			return nil
+		}
+
+		// Read the file contents
+		b, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+
+		// Replace import strings
+		if gen.useTemplate {
+
+		}
+
+		foundTemplate := gen.templates[template]
+		replaced := strings.Replace(string(b), foundTemplate.GetName(), gen.settings.Module, -1)
+
+		// If the contents have changed, write the updated contents back to the file
+		if replaced != string(b) {
+			err = os.WriteFile(path, []byte(replaced), 0644)
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		return err
 	}
@@ -206,11 +319,13 @@ func (gen *Generator) setModuleVersion() error {
 }
 
 // Execute a given command
-func (g *Generator) executeCommand(cmd *exec.Cmd) error {
+func (g *Generator) executeCommand(cmdStr string) error {
+	cmd := exec.Command("sh", "-c", cmdStr)
+
 	cmd.Dir = g.settings.Path
-	err := cmd.Run()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return err
+		return errors.New(string(out))
 	}
 
 	return nil
@@ -301,7 +416,7 @@ func (gen *Generator) createInternalAppFile() error {
 
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			init = append(init, adapter.AppInit()...)
+			init = append(init, adapter.AppInit(gen.settings.Module)...)
 			shutdown = append(shutdown, adapter.AppShutdown()...)
 		}
 	}
@@ -322,7 +437,7 @@ func (gen *Generator) createInternalAppFile() error {
 	}
 
 	// Create the main Run function
-	f.Func().Id("Run").Params(Id("gCtx").Qual("context", "Context"), Id("cancel").Qual("context", "CancelFunc"), Id("cfg").Add(ptr).Qual(gen.settings.Module+"/config", "Config")).BlockFunc(func(g *Group) {
+	f.Func().Id("Run").Params(Id("gCtx").Qual("context", "Context"), Id("cancel").Qual("context", "CancelFunc"), Id("cfg").Add(utils.Jptr).Qual(gen.settings.Module+"/config", "Config")).BlockFunc(func(g *Group) {
 		if len(gen.settings.Adapters) != 0 && len(gen.settings.Services) != 0 {
 			g.Var().Err().Error()
 		}
@@ -371,9 +486,8 @@ func (gen *Generator) createConfigGoFile() error {
 		adapterConfigs...,
 	).Line()
 
-	ptr := Op("*")
 	// Function to create a new config
-	f.Func().Id("New").Params(Id("Version").String()).Op("(").Add(ptr).Id("Config").Op(",").Error().Op(")").Block(
+	f.Func().Id("New").Params(Id("Version").String()).Op("(").Add(utils.Jptr).Id("Config").Op(",").Error().Op(")").Block(
 		Id("config").Op(":=").Qual("github.com/spf13/viper", "New").Call(),
 		Line(),
 		Id("config").Dot("SetConfigType").Params(Lit("yaml")),
@@ -445,12 +559,12 @@ func (gen *Generator) createConfigYamlFile() error {
 	}
 
 	// Write the YAML data to a file
-	err := ioutil.WriteFile(gen.settings.Path+"/config/config.yaml", []byte(finalYaml), 0644)
+	err := os.WriteFile(gen.settings.Path+"/config/config.yaml", []byte(finalYaml), 0600)
 	if err != nil {
 		return fmt.Errorf("error creating config/config.yaml file: %s", err)
 	}
 
-	err = ioutil.WriteFile(gen.settings.Path+"/config/config.dev.yaml", []byte(finalYaml), 0644)
+	err = os.WriteFile(gen.settings.Path+"/config/config.dev.yaml", []byte(finalYaml), 0600)
 	if err != nil {
 		return fmt.Errorf("error creating config/config.dev.yaml file: %s", err)
 	}
@@ -462,21 +576,14 @@ func (gen *Generator) createConfigYamlFile() error {
 func (gen *Generator) copyFiles() error {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			f := adapter.Service()
+			f := adapter.Service(gen.settings.Module)
 			err := f.Save(gen.settings.Path + "/pkg/" + adapter.GetName() + "/service.go")
-			// err := gen.copyFileToFolder("pkg/templates/adapters/"+adapter.GetName()+"/adapter.go", gen.settings.Path+"/pkg/"+adapter.GetName())
 			if err != nil {
 				fmt.Println("ERROR HERE IDIOT")
 				return err
 			}
 		}
 	}
-
-	/* for _, service := range gen.services {
-		if gen.settings.IsServiceChecked(service.GetName()) {
-			gen.copyFileToFolder("internal/templates/services/"+service.GetName()+"/service.go", gen.settings.Path+"/pkg/"+service.GetName())
-		}
-	} */
 
 	return nil
 }

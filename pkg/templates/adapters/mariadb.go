@@ -3,11 +3,11 @@ package adapters
 import (
 	j "github.com/dave/jennifer/jen"
 	"github.com/mahcks/gowizard/pkg/domain"
+	"github.com/mahcks/gowizard/pkg/utils"
 )
 
 type MariaDBAdapter struct {
-	name             string // name of the adapter
-	*domain.Settings        // settings of the project
+	name string // name of the adapter
 }
 
 // GetName returns the name of the adapter
@@ -15,10 +15,9 @@ func (adp *MariaDBAdapter) GetName() string {
 	return adp.name
 }
 
-func NewMariaDBAdapter(settings *domain.Settings) domain.ModuleI {
+func NewMariaDBAdapter() domain.ModuleI {
 	return &MariaDBAdapter{
-		name:     "mariadb",
-		Settings: settings,
+		name: "mariadb",
 	}
 }
 
@@ -47,9 +46,9 @@ func (adp *MariaDBAdapter) ConfigGo() *j.Statement {
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (adp *MariaDBAdapter) AppInit() []j.Code {
+func (adp *MariaDBAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
-		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(adp.Module+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
+		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(module+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
 			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - mariadb.New"), j.Lit("error"), j.Id("err")),
 		),
@@ -69,13 +68,12 @@ func (adp *MariaDBAdapter) AppShutdown() []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (adp *MariaDBAdapter) Service() *j.File {
-	f := j.NewFilePathName(adp.Settings.Module+"/pkg/mariadb", "mariadb")
+func (adp *MariaDBAdapter) Service(module string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/mariadb", "mariadb")
 
 	// Service struct
-	ptr := j.Op("*")
 	sStruct := j.Type().Id("MariaDB").Struct(
-		j.Id("DB").Add(ptr).Qual("database/sql", "DB"),
+		j.Id("DB").Add(utils.Jptr).Qual("database/sql", "DB"),
 	)
 
 	f.Add(sStruct)

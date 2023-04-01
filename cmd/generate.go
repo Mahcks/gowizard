@@ -53,7 +53,33 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		gen := generator.NewGenerator(moduleName, "1.20", path, adapters, []string{})
+		// Get the version of Go to use, defaults to the users latest installed version
+		goVersion, err := cmd.Flags().GetString("go-version")
+		if err != nil {
+			utils.PrintError("error getting go-version flag: %s", err)
+			return
+		}
+
+		// Get the template to use
+		template, err := cmd.Flags().GetString("template")
+		if err != nil {
+			utils.PrintError("error getting template flag: %s", err)
+			return
+		}
+
+		gen := generator.NewGenerator(moduleName, goVersion, path, adapters, []string{})
+
+		// If a template is specified, use it
+		if template != "" {
+			err = gen.UseTemplate(template)
+			if err != nil {
+				utils.PrintError("error setting template: %s", err)
+				return
+			}
+
+			return
+		}
+
 		err = gen.Generate()
 		if err != nil {
 			utils.PrintError("%s", err)
@@ -80,6 +106,7 @@ func init() {
 	generateCmd.Flags().StringP("module", "m", "", "Name of the module")
 	generateCmd.Flags().StringP("path", "p", "./", "Path to the module")
 	generateCmd.Flags().StringP("go-version", "v", cmdVersion, "Go version to use - defaults to your latest installed version")
+	generateCmd.Flags().StringP("template", "t", "", "Template to use for the project")
 
 	generateCmd.Flags().StringSliceP("adapter", "a", []string{}, "Add an adapter to the project, i.e. mariadb, redis")
 }

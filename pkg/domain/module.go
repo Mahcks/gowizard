@@ -13,11 +13,11 @@ type ModuleI interface {
 	// ConfigGo is the configuration of the module in Go format
 	ConfigGo() *j.Statement
 	// AppInit is the code that will be added to the START internal/app/app.go Run() function
-	AppInit() []j.Code
+	AppInit(module string) []j.Code
 	// AppInit is the code that will be added to the END internal/app/app.go Run() function
 	AppShutdown() []j.Code
 	// Service is the code that will be added to its own `pkg` folder
-	Service() *j.File
+	Service(module string) *j.File
 }
 
 type Settings struct {
