@@ -1,0 +1,24 @@
+.PHONY: generate, wizard, clean
+
+DEFAULT_GOAL := dev
+
+MODULE := github.com/user/module
+MODULE_PATH := /some/path
+
+# Runs the module in development mode
+dev: clean generate
+
+# Uses the generate command to skip the wizard
+generate:
+	go run . generate \
+	--module $(MODULE) \
+	--path $(MODULE_PATH) \
+	--adapter mariadb,redis,mongodb
+
+# Uses the wizard to generate the module
+wizard:
+	go run .
+
+# Removes the generated module
+clean:
+	rm -rf $(MODULE_PATH)/*
