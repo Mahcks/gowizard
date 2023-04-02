@@ -6,7 +6,6 @@ import (
 
 type GoCleanTemplateRepo struct {
 	name             string // name of the repo
-	url              string // URL of the repo to clone from
 	shortDescription string // short description of the repo (used in CLI selection)
 }
 

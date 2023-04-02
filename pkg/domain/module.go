@@ -14,8 +14,10 @@ type ModuleI interface {
 	ConfigGo() *j.Statement
 	// AppInit is the code that will be added to the START internal/app/app.go Run() function
 	AppInit(module string) []j.Code
+	// AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
+	AppSelect(module string) j.Code
 	// AppInit is the code that will be added to the END internal/app/app.go Run() function
-	AppShutdown() []j.Code
+	AppShutdown(module string) []j.Code
 	// Service is the code that will be added to its own `pkg` folder
 	Service(module string) *j.File
 }

@@ -8,20 +8,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/AlecAivazis/survey/v2"
 	. "github.com/dave/jennifer/jen"
 	"github.com/mgutz/ansi"
 )
 
 // Jptr is a shortcut for jennifer.Op("*")
 var Jptr = Op("*")
-
-var IconStyles = survey.WithIcons(func(icons *survey.IconSet) {
-	icons.Question.Text = "[?]"
-	icons.Question.Format = "magenta+b"
-
-	icons.MarkedOption.Format = "cyan+b"
-})
+var Rptr = Op("&")
 
 func PrintError(msg string, args ...any) {
 	fmt.Println(ansi.Color("[✗] Error:", "red"), ansi.Color(fmt.Sprintf(msg, args...), "red"), ansi.ColorCode("reset"))

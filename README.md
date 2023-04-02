@@ -43,7 +43,7 @@ gowizard generate --module github.com/username/module --template github.com/vali
 - [x] MariaDB - [github.com/go-sql-driver/mysql (v1.7.0)](https://github.com/go-sql-driver/mysql)
 - [x] MongoDB - [go.mongodb.org/mongo-driver (v1.11.3)](https://github.com/mongodb/mongo-go-driver)
 - [ ] MySQL
-- [ ] PostgreSQL
+- [x] PostgreSQL - [github.com/jackc/pgx/v5 (v5.3.1)](https://github.com/jackc/pgx)
 - [x] Redis - [github.com/go-redis/redis/v8 (v8.11.5)](https://github.com/redis/go-redis)
 - [ ] SQLite
 

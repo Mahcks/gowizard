@@ -56,8 +56,14 @@ func (a *RedisAdapter) AppInit(module string) []j.Code {
 	}
 }
 
+// AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
+func (adp *RedisAdapter) AppSelect(module string) j.Code {
+
+	return nil
+}
+
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (a *RedisAdapter) AppShutdown() []j.Code {
+func (a *RedisAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.Id("redisClient").Dot("Close").Call(),

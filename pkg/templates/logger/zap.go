@@ -36,8 +36,13 @@ func (m *ZapLogger) AppInit(module string) []j.Code {
 	return nil
 }
 
+func (m *ZapLogger) AppSelect(module string) j.Code {
+
+	return nil
+}
+
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (m *ZapLogger) AppShutdown() []j.Code {
+func (m *ZapLogger) AppShutdown(module string) []j.Code {
 	return nil
 }
 

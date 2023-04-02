@@ -59,8 +59,14 @@ func (adp *MariaDBAdapter) AppInit(module string) []j.Code {
 	}
 }
 
+// AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
+func (adp *MariaDBAdapter) AppSelect(module string) j.Code {
+
+	return nil
+}
+
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (adp *MariaDBAdapter) AppShutdown() []j.Code {
+func (adp *MariaDBAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.Id("mdb").Dot("Close").Call(),

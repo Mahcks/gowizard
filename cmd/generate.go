@@ -53,6 +53,12 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
+		services, err := cmd.Flags().GetStringSlice("service")
+		if err != nil {
+			utils.PrintError("error getting service flags: %s", err)
+			return
+		}
+
 		// Get the version of Go to use, defaults to the users latest installed version
 		goVersion, err := cmd.Flags().GetString("go-version")
 		if err != nil {
@@ -67,11 +73,12 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		gen := generator.NewGenerator(moduleName, goVersion, path, adapters, []string{})
+		gen := generator.NewGenerator()
+		gen.SetSettings(moduleName, goVersion, path, adapters, services)
 
 		// If a template is specified, use it
 		if template != "" {
-			err = gen.UseTemplate(template)
+			err = gen.UseTemplate(template, false)
 			if err != nil {
 				utils.PrintError("error setting template: %s", err)
 				return
@@ -109,4 +116,5 @@ func init() {
 	generateCmd.Flags().StringP("template", "t", "", "Template to use for the project")
 
 	generateCmd.Flags().StringSliceP("adapter", "a", []string{}, "Add an adapter to the project, i.e. mariadb, redis")
+	generateCmd.Flags().StringSliceP("service", "s", []string{}, "Add a service to the project, i.e. REST HTTP server for Gin, or GQL server")
 }

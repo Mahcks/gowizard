@@ -22,19 +22,19 @@ func NewMongoDBAdapter() domain.ModuleI {
 }
 
 // ConfigYAML is the configuration of the adapter in YAML format
-func (m *MongoDBAdapter) ConfigGo() *j.Statement {
-	return j.Id("MongoDB").Struct(
-		j.Id("URI").String().Tag(map[string]string{"mapstructure": "uri", "json": "uri"}),
-	).Tag(map[string]string{"mapstructure": "mongodb", "json": "mongodb"})
-}
-
-// ConfigGo is the configuration of the adapter in Go format
 func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"mongodb": map[string]interface{}{
 			"uri": "mongodb://localhost:27017",
 		},
 	}
+}
+
+// ConfigGo is the configuration of the adapter in Go format
+func (m *MongoDBAdapter) ConfigGo() *j.Statement {
+	return j.Id("MongoDB").Struct(
+		j.Id("URI").String().Tag(map[string]string{"mapstructure": "uri", "json": "uri"}),
+	).Tag(map[string]string{"mapstructure": "mongodb", "json": "mongodb"})
 }
 
 // AppInit is the code that will be added to the END internal/app/app.go Run() function
@@ -52,8 +52,14 @@ func (m *MongoDBAdapter) AppInit(module string) []j.Code {
 	}
 }
 
+// AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
+func (adp *MongoDBAdapter) AppSelect(module string) j.Code {
+
+	return nil
+}
+
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (m *MongoDBAdapter) AppShutdown() []j.Code {
+func (m *MongoDBAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.Id("mongodb").Dot("Close").Call(j.Id("gCtx")),
