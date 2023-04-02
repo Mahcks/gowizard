@@ -7,7 +7,8 @@ import (
 )
 
 type MariaDBAdapter struct {
-	name string // name of the adapter
+	name        string // name of the adapter
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the adapter
@@ -15,9 +16,15 @@ func (adp *MariaDBAdapter) GetName() string {
 	return adp.name
 }
 
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (adp *MariaDBAdapter) GetDisplayName() string {
+	return adp.displayName
+}
+
 func NewMariaDBAdapter() domain.ModuleI {
 	return &MariaDBAdapter{
-		name: "mariadb",
+		name:        "mariadb",
+		displayName: "MariaDB",
 	}
 }
 

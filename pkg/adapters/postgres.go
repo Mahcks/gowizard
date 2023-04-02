@@ -7,22 +7,29 @@ import (
 )
 
 type PostgresAdapter struct {
-	name string // name of the adapter
+	name        string // name of the adapter
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the adapter
-func (a *PostgresAdapter) GetName() string {
-	return a.name
+func (adp *PostgresAdapter) GetName() string {
+	return adp.name
+}
+
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (adp *PostgresAdapter) GetDisplayName() string {
+	return adp.displayName
 }
 
 func NewPostgresAdapter() domain.ModuleI {
 	return &PostgresAdapter{
-		name: "postgres",
+		name:        "postgres",
+		displayName: "Postgres",
 	}
 }
 
 // ConfigYAML is the configuration of the adapter in YAML format
-func (m *PostgresAdapter) ConfigYAML() map[string]interface{} {
+func (adp *PostgresAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"postgres": map[string]interface{}{
 			"url":           "postgresql://user@localhost",
@@ -32,7 +39,7 @@ func (m *PostgresAdapter) ConfigYAML() map[string]interface{} {
 }
 
 // ConfigGo is the configuration of the adapter in Go format
-func (m *PostgresAdapter) ConfigGo() *j.Statement {
+func (adp *PostgresAdapter) ConfigGo() *j.Statement {
 	return j.Id("Postgres").Struct(
 		j.Id("URL").String().Tag(map[string]string{"mapstructure": "url", "json": "url"}),
 		j.Id("MaxPoolSize").Int().Tag(map[string]string{"mapstructure": "max_pool_size", "json": "max_pool_size"}),
@@ -40,7 +47,7 @@ func (m *PostgresAdapter) ConfigGo() *j.Statement {
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (m *PostgresAdapter) AppInit(module string) []j.Code {
+func (adp *PostgresAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.List(j.Id("pg"), j.Err()).Op(":=").Qual(module+"/pkg/postgres", "New").Params(j.Id("gCtx"), j.Id("cfg.Postgres.URL")),
 		j.Line(),
@@ -52,19 +59,19 @@ func (m *PostgresAdapter) AppInit(module string) []j.Code {
 }
 
 // AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
-func (m *PostgresAdapter) AppSelect(module string) j.Code {
+func (adp *PostgresAdapter) AppSelect(module string) j.Code {
 	return nil
 }
 
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (m *PostgresAdapter) AppShutdown(module string) []j.Code {
+func (adp *PostgresAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Id("pg").Dot("Close").Call(),
 	}
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (m *PostgresAdapter) Service(module string) *j.File {
+func (adp *PostgresAdapter) Service(module string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/postgres", "postgres")
 
 	// Service struct

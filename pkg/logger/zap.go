@@ -7,7 +7,8 @@ import (
 )
 
 type ZapLogger struct {
-	name string // name of the logger
+	name        string // name of the logger
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the logger
@@ -15,9 +16,15 @@ func (l *ZapLogger) GetName() string {
 	return l.name
 }
 
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (l *ZapLogger) GetDisplayName() string {
+	return l.displayName
+}
+
 func NewZapLogger() domain.ModuleI {
 	return &ZapLogger{
-		name: "zap",
+		name:        "zap",
+		displayName: "Zap",
 	}
 }
 

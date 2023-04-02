@@ -8,7 +8,8 @@ import (
 )
 
 type RESTGin struct {
-	name string // name of the service
+	name        string // name of the service
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the service
@@ -16,9 +17,15 @@ func (svc *RESTGin) GetName() string {
 	return svc.name
 }
 
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (svc *RESTGin) GetDisplayName() string {
+	return "Gin"
+}
+
 func NewRESTGinService() domain.ModuleI {
 	return &RESTGin{
-		name: "rest_gin",
+		name:        "rest_gin",
+		displayName: "Gin",
 	}
 }
 

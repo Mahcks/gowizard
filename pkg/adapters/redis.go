@@ -7,17 +7,24 @@ import (
 )
 
 type RedisAdapter struct {
-	name string // name of the adapter
+	name        string // name of the adapter
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the adapter
-func (a *RedisAdapter) GetName() string {
-	return a.name
+func (adp *RedisAdapter) GetName() string {
+	return adp.name
+}
+
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (adp *RedisAdapter) GetDisplayName() string {
+	return adp.displayName
 }
 
 func NewRedisAdapter() domain.ModuleI {
 	return &RedisAdapter{
-		name: "redis",
+		name:        "redis",
+		displayName: "Redis",
 	}
 }
 
@@ -33,7 +40,7 @@ func (a *RedisAdapter) ConfigYAML() map[string]interface{} {
 }
 
 // ConfigGo is the configuration of the adapter in Go format
-func (a *RedisAdapter) ConfigGo() *j.Statement {
+func (adp *RedisAdapter) ConfigGo() *j.Statement {
 	return j.Id("Redis").Struct(
 		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
 		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
@@ -42,7 +49,7 @@ func (a *RedisAdapter) ConfigGo() *j.Statement {
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (a *RedisAdapter) AppInit(module string) []j.Code {
+func (adp *RedisAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(module+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
@@ -63,7 +70,7 @@ func (adp *RedisAdapter) AppSelect(module string) j.Code {
 }
 
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (a *RedisAdapter) AppShutdown(module string) []j.Code {
+func (adp *RedisAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.Id("redisClient").Dot("Close").Call(),
@@ -71,7 +78,7 @@ func (a *RedisAdapter) AppShutdown(module string) []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (a *RedisAdapter) Service(module string) *j.File {
+func (adp *RedisAdapter) Service(module string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/redis", "redis")
 
 	// Service struct

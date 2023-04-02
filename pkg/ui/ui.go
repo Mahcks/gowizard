@@ -35,7 +35,6 @@ func (ui *UI) PromptForModuleName() (string, error) {
 	promptModule := &survey.Input{
 		Message: "What is your desired module name?",
 		Help:    "This is the name of the module that will be generated. It should be in the format of github.com/userororg/repo",
-		Default: "github.com/mahcks/somemodule",
 	}
 	err := survey.AskOne(promptModule, &module, ui.iconStyles, survey.WithValidator(survey.Required))
 	if err != nil {
@@ -114,10 +113,8 @@ func (ui *UI) PromptForAdapters() ([]string, error) {
 	adapters := []string{}
 
 	var options []string
-	descriptions := make(map[string]string) // Use a map to store the descriptions
-	for key, value := range ui.gen.GetAdapters() {
-		options = append(options, key)
-		descriptions[key] = value.GetName() // Add the description for each template
+	for _, value := range ui.gen.GetAdapters() {
+		options = append(options, value.GetDisplayName()) // Add the description for each template
 	}
 
 	// Sort the options slice in alphabetical order

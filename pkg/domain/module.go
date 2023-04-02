@@ -7,6 +7,8 @@ import (
 type ModuleI interface {
 	// GetName returns the name of the module
 	GetName() string
+	// GetDisplayName - what will be displayed in the CLI when prompted
+	GetDisplayName() string
 
 	// ConfigYAML is the configuration of the module in YAML format
 	ConfigYAML() map[string]interface{}

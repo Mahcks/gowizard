@@ -7,22 +7,29 @@ import (
 )
 
 type MongoDBAdapter struct {
-	name string // name of the adapter
+	name        string // name of the adapter
+	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the adapter
-func (a *MongoDBAdapter) GetName() string {
-	return a.name
+func (adp *MongoDBAdapter) GetName() string {
+	return adp.name
+}
+
+// GetDisplayName - what will be displayed in the CLI when prompted
+func (adp *MongoDBAdapter) GetDisplayName() string {
+	return adp.displayName
 }
 
 func NewMongoDBAdapter() domain.ModuleI {
 	return &MongoDBAdapter{
-		name: "mongodb",
+		name:        "mongodb",
+		displayName: "MongoDB",
 	}
 }
 
 // ConfigYAML is the configuration of the adapter in YAML format
-func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
+func (adp *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
 		"mongodb": map[string]interface{}{
 			"uri": "mongodb://localhost:27017",
@@ -31,14 +38,14 @@ func (m *MongoDBAdapter) ConfigYAML() map[string]interface{} {
 }
 
 // ConfigGo is the configuration of the adapter in Go format
-func (m *MongoDBAdapter) ConfigGo() *j.Statement {
+func (adp *MongoDBAdapter) ConfigGo() *j.Statement {
 	return j.Id("MongoDB").Struct(
 		j.Id("URI").String().Tag(map[string]string{"mapstructure": "uri", "json": "uri"}),
 	).Tag(map[string]string{"mapstructure": "mongodb", "json": "mongodb"})
 }
 
 // AppInit is the code that will be added to the END internal/app/app.go Run() function
-func (m *MongoDBAdapter) AppInit(module string) []j.Code {
+func (adp *MongoDBAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.List(j.Id("mongodb"), j.Err()).Op(":=").Qual(module+"/pkg/mongodb", "New").Params(j.Id("gCtx"), j.Id("cfg.MongoDB.URI")).Op(";"),
@@ -59,7 +66,7 @@ func (adp *MongoDBAdapter) AppSelect(module string) j.Code {
 }
 
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (m *MongoDBAdapter) AppShutdown(module string) []j.Code {
+func (adp *MongoDBAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Line(),
 		j.Id("mongodb").Dot("Close").Call(j.Id("gCtx")),
@@ -67,7 +74,7 @@ func (m *MongoDBAdapter) AppShutdown(module string) []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (a *MongoDBAdapter) Service(module string) *j.File {
+func (adp *MongoDBAdapter) Service(module string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/mongodb", "mongodb")
 
 	// Service struct

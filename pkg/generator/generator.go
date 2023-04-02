@@ -14,11 +14,11 @@ import (
 	"github.com/mgutz/ansi"
 	"gopkg.in/yaml.v2"
 
+	adapterTemplates "github.com/mahcks/gowizard/pkg/adapters"
 	"github.com/mahcks/gowizard/pkg/domain"
-	adapterTemplates "github.com/mahcks/gowizard/pkg/templates/adapters"
-	loggerTemplates "github.com/mahcks/gowizard/pkg/templates/logger"
-	repoTemplates "github.com/mahcks/gowizard/pkg/templates/repos"
-	serviceTemplates "github.com/mahcks/gowizard/pkg/templates/services"
+	loggerTemplates "github.com/mahcks/gowizard/pkg/logger"
+	serviceTemplates "github.com/mahcks/gowizard/pkg/services"
+	repoTemplates "github.com/mahcks/gowizard/pkg/templates"
 	"github.com/mahcks/gowizard/pkg/utils"
 )
 
@@ -376,8 +376,6 @@ func (gen *Generator) generateFolderStructure() error {
 	directories["pkg"] = append(directories["pkg"], gen.settings.Adapters...)
 	directories["pkg"] = append(directories["pkg"], gen.settings.Services...)
 	gen.directories = directories
-
-	fmt.Println(gen.directories)
 
 	// Loop through the map and create directories and sub-directories
 	for parentDir, subDirs := range directories {
