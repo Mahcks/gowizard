@@ -16,7 +16,6 @@ import (
 
 	adapterTemplates "github.com/mahcks/gowizard/pkg/adapters"
 	"github.com/mahcks/gowizard/pkg/domain"
-	loggerTemplates "github.com/mahcks/gowizard/pkg/logger"
 	serviceTemplates "github.com/mahcks/gowizard/pkg/services"
 	repoTemplates "github.com/mahcks/gowizard/pkg/templates"
 	"github.com/mahcks/gowizard/pkg/utils"
@@ -28,29 +27,25 @@ type Generator struct {
 	directories map[string][]string
 	adapters    map[string]domain.ModuleI
 	controllers map[string]domain.ModuleI
-	loggers     map[string]domain.ModuleI
-	services    map[string]domain.ModuleI
+	services    map[string]domain.ServiceI
 	templates   map[string]domain.TemplateI
 }
 
 // NewGenerator - Create a new generator
 func NewGenerator() *Generator {
-	// Register loggers here
-	loggers := map[string]domain.ModuleI{
-		"zap": loggerTemplates.NewZapLogger(),
-	}
-
 	// Register adapters here
 	adapters := map[string]domain.ModuleI{
 		"mariadb":  adapterTemplates.NewMariaDBAdapter(),
 		"mongodb":  adapterTemplates.NewMongoDBAdapter(),
 		"postgres": adapterTemplates.NewPostgresAdapter(),
 		"redis":    adapterTemplates.NewRedisAdapter(),
+		"sql":      adapterTemplates.NewSQLAdapter(),
 	}
 
 	// Register services
-	services := map[string]domain.ModuleI{
-		"rest_gin": serviceTemplates.NewRESTGinService(),
+	services := map[string]domain.ServiceI{
+		"rest": serviceTemplates.NewRESTService(),
+		"gql":  serviceTemplates.NewGQLService(),
 	}
 
 	// Register templates here
@@ -62,18 +57,16 @@ func NewGenerator() *Generator {
 	return &Generator{
 		adapters:  adapters,
 		templates: templates,
-		loggers:   loggers,
 		services:  services,
 	}
 }
 
 // SetSettings - Set the settings for the generator
-func (gen *Generator) SetSettings(moduleName, moduleVersion, path string, enabledAdapters, enabledServices []string) {
+func (gen *Generator) SetSettings(moduleName, moduleVersion, path string, enabledAdapters []string, enabledServices map[string]string) {
 	gen.settings = &domain.Settings{
 		Module:        moduleName,
 		ModuleVersion: moduleVersion,
 		Path:          path,
-		Logger:        "zap",
 		Adapters:      enabledAdapters,
 		Services:      enabledServices,
 	}
@@ -135,7 +128,7 @@ func (gen *Generator) GetAdapters() map[string]domain.ModuleI {
 }
 
 // GetServices - Returns the services available for the generator
-func (gen *Generator) GetServices() map[string]domain.ModuleI {
+func (gen *Generator) GetServices() map[string]domain.ServiceI {
 	return gen.services
 }
 
@@ -163,15 +156,6 @@ func (gen *Generator) Generate() error {
 		return err
 	}
 	gen.successMessage("Generated folder structure...")
-
-	// Copies over the proper logger and ensures any errors are handled with that logger
-	logFile := gen.loggers[gen.settings.Logger].Service(gen.settings.Module)
-	err = logFile.Save(gen.settings.Path + "/pkg/logger/logger.go")
-	if err != nil {
-		utils.PrintError("Error saving logger file: %s", err.Error())
-		return err
-	}
-	gen.successMessage(fmt.Sprintf("Using logger: %s", gen.settings.Logger))
 
 	// Generates the cmd/main.go file
 	err = gen.generateMainFile()
@@ -374,7 +358,7 @@ func (gen *Generator) generateFolderStructure() error {
 
 	// Append the adapters to the pkg directory
 	directories["pkg"] = append(directories["pkg"], gen.settings.Adapters...)
-	directories["pkg"] = append(directories["pkg"], gen.settings.Services...)
+
 	gen.directories = directories
 
 	// Loop through the map and create directories and sub-directories
@@ -410,13 +394,10 @@ func (gen *Generator) generateMainFile() error {
 	mainFile.Func().Id("main").Params().Block(
 		List(Id("cfg"), Err()).Op(":=").Qual(gen.settings.Module+"/config", "New").Call(Id("Version")),
 		If(Err().Op("!=").Nil()).Block(
-			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - config - New"), Lit("error"), Err()),
+			Qual("fmt", "Println").Call(Lit("main.config.New()"), Err()),
 		),
 		Line(),
-		Err().Op("=").Qual(gen.settings.Module+"/pkg/logger", "New").Call(Id("Version")),
-		If().Err().Op("!=").Nil().Block(
-			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Call(Lit("main - logger - New"), Lit("error"), Err()),
-		),
+		Line().Comment("TODO: Initialize logger here and pass it to the Run function"),
 		Line(),
 		Id("gCtx").Op(",").Id("cancel").Op(":=").Qual("context", "WithCancel").Params(Qual("context", "Background").Call()),
 		Line(),
@@ -434,13 +415,19 @@ func (gen *Generator) generateMainFile() error {
 }
 
 func (gen *Generator) createInternalAppFile() error {
+	if gen == nil || gen.adapters == nil || gen.services == nil || gen.settings == nil {
+		return fmt.Errorf("generator or its members are not initialized")
+	}
+
 	// Get all the adapters
 	var init []Code
 	var selectBranches []Code
-	var shutdown []Code
+
+	var shutdownServices []Code
+	var shutdownAdapters []Code
 
 	selectBranches = append(selectBranches, Case(Id("stop").Op(":=").Op("<-").Id("interrupt")).Block(
-		Qual("go.uber.org/zap", "S").Call().Dot("Infow").Params(Lit("app - Run - received signal"), Lit("signal"), Id("stop")),
+		Qual("fmt", "Println").Call(Lit("app.Run - received signal"), Id("stop")),
 	))
 
 	for _, adapter := range gen.adapters {
@@ -450,20 +437,23 @@ func (gen *Generator) createInternalAppFile() error {
 
 			selectBranches = append(selectBranches, adapter.AppSelect(gen.settings.Module), Line())
 
-			shutdown = append(shutdown, adapter.AppShutdown(gen.settings.Module)...)
-			shutdown = append(shutdown, Line())
+			shutdownAdapters = append(shutdownAdapters, adapter.AppShutdown(gen.settings.Module)...)
+			shutdownAdapters = append(shutdownAdapters, Line())
 		}
 	}
 
 	for _, service := range gen.services {
 		if gen.settings.IsServiceChecked(service.GetName()) {
-			init = append(init, service.AppInit(gen.settings.Module)...)
+			flavorStr := gen.settings.Services[service.GetName()]
+			flavor := service.GetFlavors()[flavorStr]
+
+			init = append(init, flavor.AppInit(gen.settings.Module)...)
 			init = append(init, Line())
 
-			selectBranches = append(selectBranches, service.AppSelect(gen.settings.Module), Line())
+			selectBranches = append(selectBranches, flavor.AppSelect(gen.settings.Module), Line())
 
-			shutdown = append(shutdown, service.AppShutdown(gen.settings.Module)...)
-			shutdown = append(shutdown, Line())
+			shutdownServices = append(shutdownServices, flavor.AppShutdown(gen.settings.Module)...)
+			shutdownServices = append(shutdownServices, Line())
 		}
 	}
 
@@ -471,7 +461,7 @@ func (gen *Generator) createInternalAppFile() error {
 
 	// Anonymous import for SQL driver
 	// Only doing it if SQL is used
-	if gen.settings.IsAdapterChecked("mariadb") {
+	if gen.settings.IsAdapterChecked("mariadb") || gen.settings.IsAdapterChecked("mysql") {
 		f.Anon("github.com/go-sql-driver/mysql")
 	}
 
@@ -495,7 +485,10 @@ func (gen *Generator) createInternalAppFile() error {
 		)
 		g.Line().Comment("Shutdown")
 		g.Id("cancel").Call()
-		g.Add(shutdown...)
+		g.Line()
+		g.Add(shutdownServices...)
+		g.Line()
+		g.Add(shutdownAdapters...)
 	})
 
 	err := f.Save(gen.settings.Path + "/internal/app/app.go")
@@ -518,11 +511,12 @@ func (gen *Generator) createConfigGoFile() error {
 		}
 	}
 
-	for _, service := range gen.services {
-		if gen.settings.IsServiceChecked(service.GetName()) {
-			configs = append(configs, service.ConfigGo())
-		}
-	}
+	/* for _, service := range gen.services {
+		flavorStr := gen.settings.Services[service.GetName()]
+		flavor := service.GetFlavors()[flavorStr]
+
+		configs = append(configs, service.ConfigGo())
+	} */
 
 	// The config struct
 	f.Type().Id("Config").Struct(
@@ -543,7 +537,7 @@ func (gen *Generator) createConfigGoFile() error {
 		Line(),
 		Err().Op(":=").Id("config").Dot("ReadInConfig").Call(),
 		If(Err().Op("!=").Nil()).Block(
-			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(Lit("config - New - config.ReadInConfig"), Lit("error"), Id("err")),
+			Qual("fmt", "Println").Call(Lit("config.New config.ReadInConfig()"), Err()),
 		),
 		Line().Comment("Envrionment"),
 		Id("config").Dot("ReadInConfig").Call(),
@@ -555,7 +549,7 @@ func (gen *Generator) createConfigGoFile() error {
 		Line(),
 		Err().Op("=").Id("config").Dot("Unmarshal").Params(Op("&").Id("c")),
 		If(Err().Op("!=").Nil()).Block(
-			Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(Lit("config - New - config.Unmarshal"), Lit("error"), Id("err")),
+			Qual("fmt", "Println").Call(Lit("config.New config.Unmarshal()"), Err()),
 		),
 		Line(),
 		Return(Id("c"), Nil()),
@@ -581,11 +575,11 @@ func (gen *Generator) createConfigYamlFile() error {
 		}
 	}
 
-	for _, service := range gen.services {
+	/* for _, service := range gen.services {
 		if gen.settings.IsServiceChecked(service.GetName()) {
 			configs = append(configs, service.ConfigYAML())
 		}
-	}
+	} */
 
 	// Marshal each map into a separate YAML document
 	var yamlDocs []string
@@ -625,23 +619,13 @@ func (gen *Generator) createConfigYamlFile() error {
 func (gen *Generator) copyFiles() error {
 	for _, adapter := range gen.adapters {
 		if gen.settings.IsAdapterChecked(adapter.GetName()) {
-			f := adapter.Service(gen.settings.Module)
-			err := f.Save(gen.settings.Path + "/pkg/" + adapter.GetName() + "/adapter.go")
-			if err != nil {
-				fmt.Println("ERROR HERE", err)
-				return err
-			}
+			adapter.Service(gen.settings.Module, gen.settings.Path)
 		}
-
 	}
 
 	for _, service := range gen.services {
 		if gen.settings.IsServiceChecked(service.GetName()) {
-			f := service.Service(gen.settings.Module)
-			err := f.Save(gen.settings.Path + "/pkg/" + service.GetName() + "/service.go")
-			if err != nil {
-				return err
-			}
+			service.GetFlavor(gen.settings.Services[service.GetName()]).Service(gen.settings.Module, gen.settings.Path)
 		}
 	}
 

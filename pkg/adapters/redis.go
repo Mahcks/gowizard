@@ -54,11 +54,11 @@ func (adp *RedisAdapter) AppInit(module string) []j.Code {
 		j.Line(),
 		j.List(j.Id("redisClient"), j.Err()).Op(":=").Qual(module+"/pkg/redis", "New").Params(j.Id("gCtx"), j.Id("cfg.Redis.Host"), j.Id("cfg.Redis.Port"), j.Id("cfg.Redis.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
-			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - redis.New"), j.Lit("error"), j.Id("err")),
+			j.Qual("fmt", "Println").Call(j.Lit("error connecting to redis"), j.Err()),
 		),
 		j.Line(),
 		j.Line(),
-		j.Qual("go.uber.org/zap", "S").Call().Dot("Infow").Call(j.Lit("main - app - Run"), j.Lit("message"), j.Lit("Redis initialized")),
+		j.Qual("fmt", "Println").Call(j.Lit("connected to redis")),
 		j.Line(),
 	}
 }
@@ -72,13 +72,12 @@ func (adp *RedisAdapter) AppSelect(module string) j.Code {
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (adp *RedisAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
-		j.Line(),
 		j.Id("redisClient").Dot("Close").Call(),
 	}
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (adp *RedisAdapter) Service(module string) *j.File {
+func (adp *RedisAdapter) Service(module, path string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/redis", "redis")
 
 	// Service struct
@@ -134,6 +133,12 @@ func (adp *RedisAdapter) Service(module string) *j.File {
 		),
 		j.Return(j.Nil()),
 	)
+
+	err := f.Save(path + "/pkg/" + adp.name + "/adapter.go")
+	if err != nil {
+		utils.PrintError("error saving file: %s", err)
+		return nil
+	}
 
 	return f
 }

@@ -138,6 +138,73 @@ func (ui *UI) PromptForAdapters() ([]string, error) {
 	return adapters, nil
 }
 
+func (ui *UI) PromptForServices() ([]string, error) {
+	selectedServices := []string{}
+
+	var options []string
+	for _, value := range ui.gen.GetServices() {
+		options = append(options, value.GetDisplayName()) // Add the description for each template
+	}
+
+	// Sort the options slice in alphabetical order
+	sort.Strings(options)
+
+	adapterPrompt := &survey.MultiSelect{
+		Message: "Choose services:",
+		Options: options,
+	}
+	err := survey.AskOne(adapterPrompt, &selectedServices, ui.iconStyles)
+	if err != nil {
+		utils.PrintError("error prompting for adapters: %s", err)
+		return nil, fmt.Errorf("error prompting for adapters: %s", err)
+	}
+
+	// Lowercase all adapter names before passing them to the generator
+	for i, adapter := range selectedServices {
+		selectedServices[i] = strings.ToLower(adapter)
+	}
+
+	return selectedServices, nil
+}
+
+func (ui *UI) PromptForServiceFlavor(service string) (string, error) {
+	var options []string
+	descriptions := make(map[string]string) // Use a map to store the descriptions
+
+	services := ui.gen.GetServices()
+	if services == nil {
+		return "", fmt.Errorf("services map is nil")
+	}
+
+	serviceData, ok := services[service]
+	if !ok {
+		return "", fmt.Errorf("service '%s' not found in services map", service)
+	}
+
+	for key, value := range serviceData.GetFlavors() {
+		options = append(options, value.GetName())
+		descriptions[key] = value.GetDescription() // Add the description for each template
+	}
+
+	// Sort the options slice in alphabetical order
+	sort.Strings(options)
+
+	flavor := ""
+	prompt := &survey.Select{
+		Message: fmt.Sprintf("Select a flavor for %s", service),
+		Options: options,
+		Description: func(value string, index int) string {
+			return descriptions[value]
+		},
+	}
+	err := survey.AskOne(prompt, &flavor, ui.iconStyles)
+	if err != nil {
+		return "", err
+	}
+
+	return flavor, nil
+}
+
 // PromptForTemplate prompts the user for the template to use that's in the repos template directory
 func (ui *UI) PromptForTemplate() (string, error) {
 	var options []string
@@ -158,7 +225,10 @@ func (ui *UI) PromptForTemplate() (string, error) {
 			return descriptions[value]
 		},
 	}
-	survey.AskOne(prompt, &template, ui.iconStyles)
+	err := survey.AskOne(prompt, &template, ui.iconStyles)
+	if err != nil {
+		return "", err
+	}
 
 	return template, nil
 }

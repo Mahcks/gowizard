@@ -52,8 +52,11 @@ func (adp *PostgresAdapter) AppInit(module string) []j.Code {
 		j.List(j.Id("pg"), j.Err()).Op(":=").Qual(module+"/pkg/postgres", "New").Params(j.Id("gCtx"), j.Id("cfg.Postgres.URL")),
 		j.Line(),
 		j.If(j.Err().Op("!=").Nil()).Block(
-			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - postgres.New"), j.Lit("error"), j.Id("err")),
+			j.Qual("fmt", "Println").Call(j.Lit("error connecting to postgres"), j.Err()),
 		),
+		j.Line(),
+		j.Line(),
+		j.Qual("fmt", "Println").Call(j.Lit("connected to mongodb")),
 		j.Line(),
 	}
 }
@@ -71,7 +74,7 @@ func (adp *PostgresAdapter) AppShutdown(module string) []j.Code {
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (adp *PostgresAdapter) Service(module string) *j.File {
+func (adp *PostgresAdapter) Service(module, path string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/postgres", "postgres")
 
 	// Service struct
@@ -125,6 +128,12 @@ func (adp *PostgresAdapter) Service(module string) *j.File {
 			j.Id("pg.Pool").Dot("Close").Call(),
 		),
 	)
+
+	err := f.Save(path + "/pkg/" + adp.name + "/adapter.go")
+	if err != nil {
+		utils.PrintError("error saving file: %s", err)
+		return nil
+	}
 
 	return f
 }

@@ -52,11 +52,32 @@ gowizard generate --module github.com/username/module --path /path/to/module --a
 		// Prompt for adapters
 		adapters, err := ui.PromptForAdapters()
 		if err != nil {
-			fmt.Println("error", err.Error())
 			return
 		}
 
-		gen.SetSettings(module, goVersion, path, adapters, []string{})
+		// Propt for services
+		services, err := ui.PromptForServices()
+		if err != nil {
+			return
+		}
+
+		// For each service selected, prompt for the service's adapters
+		chosenFlavors := make(map[string]string, len(services)) // map[service]flavor
+		for _, service := range services {
+			flavor, err := ui.PromptForServiceFlavor(service)
+			if err != nil {
+				return
+			}
+
+			chosenFlavors[service] = flavor
+		}
+
+		if chosenFlavors == nil || adapters == nil {
+			fmt.Println("No services or adapters selected.")
+			return
+		}
+
+		gen.SetSettings(module, goVersion, path, adapters, chosenFlavors)
 
 		err = gen.Generate()
 		if err != nil {

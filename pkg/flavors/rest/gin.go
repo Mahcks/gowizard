@@ -1,74 +1,83 @@
 package services
 
 import (
+	"os"
+
 	j "github.com/dave/jennifer/jen"
 
 	"github.com/mahcks/gowizard/pkg/domain"
 	"github.com/mahcks/gowizard/pkg/utils"
 )
 
-type RESTGin struct {
-	name        string // name of the service
+type Gin struct {
+	name        string // name of the flavor
 	displayName string // name of the adapter that will be displayed in the CLI
+	description string // description of the flavor
 }
 
-// GetName returns the name of the service
-func (svc *RESTGin) GetName() string {
-	return svc.name
+// GetName returns the name of the flavor
+func (flv *Gin) GetName() string {
+	return flv.name
 }
 
 // GetDisplayName - what will be displayed in the CLI when prompted
-func (svc *RESTGin) GetDisplayName() string {
-	return "Gin"
+func (flv *Gin) GetDisplayName() string {
+	return flv.displayName
 }
 
-func NewRESTGinService() domain.ModuleI {
-	return &RESTGin{
-		name:        "rest_gin",
-		displayName: "Gin",
+// GetDescription - returns the description of the flavor
+func (flv *Gin) GetDescription() string {
+	return flv.description
+}
+
+func NewGinFlavor() domain.FlavorI {
+	return &Gin{
+		name:        "gin",
+		displayName: "github.com/gin-gonic/gin",
+		description: "Gin is a HTTP web framework written in Go (Golang). It features a Martini-like API with much better performance -- up to 40 times faster. If you need smashing performance, get yourself some Gin.",
 	}
 }
 
 // ConfigYAML is the configuration of the adapter in YAML format
-func (m *RESTGin) ConfigYAML() map[string]interface{} {
+func (flv *Gin) ConfigYAML() map[string]interface{} {
 	return nil
 }
 
 // ConfigGo is the configuration of the adapter in Go format
-func (svc *RESTGin) ConfigGo() *j.Statement {
+func (flv *Gin) ConfigGo() *j.Statement {
 	return nil
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (svc *RESTGin) AppInit(module string) []j.Code {
+func (flv *Gin) AppInit(module string) []j.Code {
 	return []j.Code{
 		j.Id("handler").Op(":=").Qual("github.com/gin-gonic/gin", "New").Call(),
 		j.Line(),
-		j.Id("httpServer").Op(":=").Qual(module+"/pkg/rest_gin", "New").Call(j.Id("handler")),
+		j.Id("httpServer").Op(":=").Qual(module+"/pkg/httpserver", "New").Call(j.Id("handler")),
 	}
 }
 
-func (svc *RESTGin) AppSelect(module string) j.Code {
+func (flv *Gin) AppSelect(module string) j.Code {
 	return j.Case(
 		j.Id("err").Op("=").Op("<-").Id("httpServer").Dot("Notify").Call()).Block(
-		j.Qual("go.uber.org/zap", "S").Call().Dot("Errorw").Params(j.Lit("app - httpServer"), j.Lit("Notify()"), j.Id("err")),
+		j.Qual("fmt", "Println").Call(j.Lit("app.httpServer.Notifiy()"), j.Err()),
 	)
 }
 
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (svc *RESTGin) AppShutdown(module string) []j.Code {
+func (flv *Gin) AppShutdown(module string) []j.Code {
 	return []j.Code{
 		j.Id("err").Op("=").Id("httpServer").Dot("Shutdown").Call(),
 		j.Line(),
 		j.If(j.Id("err").Op("!=").Nil()).Block(
-			j.Qual("go.uber.org/zap", "S").Call().Dot("Errorw").Params(j.Lit("app - httpServer"), j.Lit("Shutdown()"), j.Id("err")),
+			j.Qual("fmt", "Println").Call(j.Lit("app.httpServer.Shutdown()"), j.Err()),
 		),
 	}
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (svc *RESTGin) Service(module string) *j.File {
-	f := j.NewFilePathName(module+"/pkg/rest_gin", "httpserver")
+func (flv *Gin) Service(module, path string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/httpserver", "httpserver")
 
 	// Service struct
 	sStruct := j.Type().Id("Service").Struct(
@@ -135,6 +144,20 @@ func (svc *RESTGin) Service(module string) *j.File {
 		j.Line(),
 		j.Return(j.Id("s").Dot("server").Dot("Shutdown").Call(j.Id("ctx"))),
 	)
+
+	// Before saving the file, create the directories if they don't exist
+	outputPath := path + "/pkg/httpserver"
+	err := os.MkdirAll(outputPath, os.ModePerm)
+	if err != nil {
+		utils.PrintError("error creating directories: %s", err)
+		return nil
+	}
+
+	err = f.Save(outputPath + "/server.go")
+	if err != nil {
+		utils.PrintError("error saving file: %s", err)
+		return nil
+	}
 
 	return f
 }

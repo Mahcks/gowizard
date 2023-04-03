@@ -6,32 +6,32 @@ import (
 	"github.com/mahcks/gowizard/pkg/utils"
 )
 
-type MariaDBAdapter struct {
+type SQLAdapter struct {
 	name        string // name of the adapter
 	displayName string // name of the adapter that will be displayed in the CLI
 }
 
 // GetName returns the name of the adapter
-func (adp *MariaDBAdapter) GetName() string {
+func (adp *SQLAdapter) GetName() string {
 	return adp.name
 }
 
 // GetDisplayName - what will be displayed in the CLI when prompted
-func (adp *MariaDBAdapter) GetDisplayName() string {
+func (adp *SQLAdapter) GetDisplayName() string {
 	return adp.displayName
 }
 
-func NewMariaDBAdapter() domain.ModuleI {
-	return &MariaDBAdapter{
-		name:        "mariadb",
-		displayName: "MariaDB",
+func NewSQLAdapter() domain.ModuleI {
+	return &SQLAdapter{
+		name:        "sql",
+		displayName: "SQL",
 	}
 }
 
 // ConfigYAML is the configuration of the adapter in YAML format
-func (m *MariaDBAdapter) ConfigYAML() map[string]interface{} {
+func (m *SQLAdapter) ConfigYAML() map[string]interface{} {
 	return map[string]interface{}{
-		"mariadb": map[string]interface{}{
+		"sql": map[string]interface{}{
 			"host":     "localhost",
 			"port":     "3306",
 			"username": "user",
@@ -42,49 +42,49 @@ func (m *MariaDBAdapter) ConfigYAML() map[string]interface{} {
 }
 
 // ConfigGo is the configuration of the adapter in Go format
-func (adp *MariaDBAdapter) ConfigGo() *j.Statement {
-	return j.Id("MariaDB").Struct(
+func (adp *SQLAdapter) ConfigGo() *j.Statement {
+	return j.Id("SQL").Struct(
 		j.Id("Host").String().Tag(map[string]string{"mapstructure": "host", "json": "host"}),
 		j.Id("Port").String().Tag(map[string]string{"mapstructure": "port", "json": "port"}),
 		j.Id("Username").String().Tag(map[string]string{"mapstructure": "username", "json": "username"}),
 		j.Id("Password").String().Tag(map[string]string{"mapstructure": "password", "json": "password"}),
 		j.Id("Database").String().Tag(map[string]string{"mapstructure": "database", "json": "database"}),
-	).Tag(map[string]string{"mapstructure": "mariadb", "json": "mariadb"})
+	).Tag(map[string]string{"mapstructure": "sql", "json": "sql"})
 }
 
 // AppInit is the code that will be added to the START internal/app/app.go Run() function
-func (adp *MariaDBAdapter) AppInit(module string) []j.Code {
+func (adp *SQLAdapter) AppInit(module string) []j.Code {
 	return []j.Code{
-		j.List(j.Id("mdb"), j.Err()).Op(":=").Qual(module+"/pkg/mariadb", "New").Params(j.Id("cfg.MariaDB.Host"), j.Id("cfg.MariaDB.Port"), j.Id("cfg.MariaDB.Database"), j.Id("cfg.MariaDB.Username"), j.Id("cfg.MariaDB.Password")).Op(";"),
+		j.List(j.Id("db"), j.Err()).Op(":=").Qual(module+"/pkg/sql", "New").Params(j.Id("cfg.SQL.Host"), j.Id("cfg.SQL.Port"), j.Id("cfg.SQL.Database"), j.Id("cfg.SQL.Username"), j.Id("cfg.SQL.Password")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
-			j.Qual("fmt", "Println").Call(j.Lit("error connecting to mariadb"), j.Err()),
+			j.Qual("fmt", "Println").Call(j.Lit("error connecting to sql"), j.Err()),
 		),
 		j.Line(),
 		j.Line(),
-		j.Qual("fmt", "Println").Call(j.Lit("connected to mariadb")),
+		j.Qual("fmt", "Println").Call(j.Lit("connected to sql")),
 		j.Line(),
 	}
 }
 
 // AppSelect - Each AppSelect branch is apart of a bigger switch statement that's in the internal/app/app.go Run() function
-func (adp *MariaDBAdapter) AppSelect(module string) j.Code {
+func (adp *SQLAdapter) AppSelect(module string) j.Code {
 
 	return nil
 }
 
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
-func (adp *MariaDBAdapter) AppShutdown(module string) []j.Code {
+func (adp *SQLAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
-		j.Id("mdb").Dot("Close").Call(),
+		j.Id("db").Dot("Close").Call(),
 	}
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (adp *MariaDBAdapter) Service(module, path string) *j.File {
-	f := j.NewFilePathName(module+"/pkg/mariadb", "mariadb")
+func (adp *SQLAdapter) Service(module, path string) *j.File {
+	f := j.NewFilePathName(module+"/pkg/sql", "sql")
 
 	// Service struct
-	sStruct := j.Type().Id("MariaDB").Struct(
+	sStruct := j.Type().Id("SQL").Struct(
 		j.Id("DB").Add(utils.Jptr).Qual("database/sql", "DB"),
 	)
 
@@ -97,7 +97,7 @@ func (adp *MariaDBAdapter) Service(module, path string) *j.File {
 		j.Id("database"),
 		j.Id("username"),
 		j.Id("password").String(),
-	).Op("(").List(j.Op("*").Add(j.Id("MariaDB"), j.Op(","), j.Error()).Op(")")).Block(
+	).Op("(").List(j.Op("*").Add(j.Id("SQL"), j.Op(","), j.Error()).Op(")")).Block(
 		j.Id("connectionString").Op(":=").Qual("fmt", "Sprintf").Params(
 			j.Lit("%s:%s@tcp(%s:%s)/%s?parseTime=true"),
 			j.Id("username"),
@@ -114,7 +114,7 @@ func (adp *MariaDBAdapter) Service(module, path string) *j.File {
 			j.Return(j.Nil(), j.Id("err")),
 		),
 		j.Line(),
-		j.Return(j.Op("&").Id("MariaDB").Values(j.Dict{
+		j.Return(j.Op("&").Id("SQL").Values(j.Dict{
 			j.Id("DB"): j.Id("client"),
 		}), j.Nil()),
 	)
@@ -122,7 +122,7 @@ func (adp *MariaDBAdapter) Service(module, path string) *j.File {
 	f.Add(j.Line())
 
 	// Close function
-	f.Func().Params(j.Id("m").Op("*").Id("MariaDB")).Id("Close").Params().Error().Block(
+	f.Func().Params(j.Id("m").Op("*").Id("SQL")).Id("Close").Params().Error().Block(
 		j.If(
 			j.Id("m").Dot("DB").Op("!=").Nil().Block(
 				j.Id("m").Dot("DB").Dot("Close").Call(),

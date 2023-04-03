@@ -50,11 +50,11 @@ func (adp *MongoDBAdapter) AppInit(module string) []j.Code {
 		j.Line(),
 		j.List(j.Id("mongodb"), j.Err()).Op(":=").Qual(module+"/pkg/mongodb", "New").Params(j.Id("gCtx"), j.Id("cfg.MongoDB.URI")).Op(";"),
 		j.If(j.Err().Op("!=").Nil()).Block(
-			j.Qual("go.uber.org/zap", "S").Call().Dot("Fatalw").Params(j.Lit("app - Run - mongodb.New"), j.Lit("error"), j.Id("err")),
+			j.Qual("fmt", "Println").Call(j.Lit("error connecting to mongodb"), j.Err()),
 		),
 		j.Line(),
 		j.Line(),
-		j.Qual("go.uber.org/zap", "S").Call().Dot("Infow").Call(j.Lit("main - app - Run"), j.Lit("message"), j.Lit("MongoDB initialized")),
+		j.Qual("fmt", "Println").Call(j.Lit("connected to mongodb")),
 		j.Line(),
 	}
 }
@@ -68,13 +68,12 @@ func (adp *MongoDBAdapter) AppSelect(module string) j.Code {
 // AppShutdown is the code that will be added to the END internal/app/app.go Run() function
 func (adp *MongoDBAdapter) AppShutdown(module string) []j.Code {
 	return []j.Code{
-		j.Line(),
 		j.Id("mongodb").Dot("Close").Call(j.Id("gCtx")),
 	}
 }
 
 // Service is the code that will be added to its own `pkg` folder
-func (adp *MongoDBAdapter) Service(module string) *j.File {
+func (adp *MongoDBAdapter) Service(module, path string) *j.File {
 	f := j.NewFilePathName(module+"/pkg/mongodb", "mongodb")
 
 	// Service struct
@@ -118,6 +117,12 @@ func (adp *MongoDBAdapter) Service(module string) *j.File {
 			j.Id("m.Client").Dot("Disconnect").Call(j.Id("gCtx")),
 		),
 	)
+
+	err := f.Save(path + "/pkg/" + adp.name + "/adapter.go")
+	if err != nil {
+		utils.PrintError("error saving file: %s", err)
+		return nil
+	}
 
 	return f
 }

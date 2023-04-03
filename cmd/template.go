@@ -54,7 +54,7 @@ var templateCmd = &cobra.Command{
 			}
 		}
 
-		gen.SetSettings(module, goVersion, path, []string{}, []string{})
+		gen.SetSettings(module, goVersion, path, []string{}, nil)
 		err = gen.UseTemplate(template, isCustom)
 		if err != nil {
 			utils.PrintError("error generating template: %s", err.Error())

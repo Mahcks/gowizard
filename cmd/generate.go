@@ -53,11 +53,11 @@ var generateCmd = &cobra.Command{
 			return
 		}
 
-		services, err := cmd.Flags().GetStringSlice("service")
+		/* services, err := cmd.Flags().GetStringSlice("service")
 		if err != nil {
 			utils.PrintError("error getting service flags: %s", err)
 			return
-		}
+		} */
 
 		// Get the version of Go to use, defaults to the users latest installed version
 		goVersion, err := cmd.Flags().GetString("go-version")
@@ -74,7 +74,7 @@ var generateCmd = &cobra.Command{
 		}
 
 		gen := generator.NewGenerator()
-		gen.SetSettings(moduleName, goVersion, path, adapters, services)
+		gen.SetSettings(moduleName, goVersion, path, adapters, nil)
 
 		// If a template is specified, use it
 		if template != "" {

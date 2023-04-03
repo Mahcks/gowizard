@@ -28,40 +28,39 @@ gowizard generate --module github.com/username/module --template github.com/vali
 ```
 
 ### Services
-- REST
-    - [ ] gin
-    - [ ] beego
-    - [ ] fiber
-    - [ ] fasthttp
-- [ ] GraphQL
+Each service has multiple "flavors" that can be used to generate the service. The following are the available flavors for each service.
+
+#### REST
+- [gin-gonic/gin](https://github.com/gin-gonic/gin)
+- [beego/beego](https://github.com/beego/beego)
+- [gofiber/fiber](https://github.com/gofiber/fiber)
+- [valyala/fasthttp](https://github.com/valyala/fasthttp)
+
+#### GraphQL
+- [github.com/99designs/gqlgen](https://github.com/99designs/gqlgen)
 
 ### Controllers
-- [ ] REST
-- [ ] gRPC
+
+#### REST
+- [github.com/gin-gonic/gin](https://github.com/gin-gonic/gin)
+- [github.com/beego/beego](https://github.com/beego/beego)
+- [github.com/gofiber/fiber](https://github.com/gofiber/fiber)
+- [github.com/valyala/fasthttp](https://github.com/valyala/fasthttp)
+
+#### gRPC
+- [github.com/grpc/grpc-go](https://github.com/grpc/grpc-go)
 
 ### Adapters
-- [x] MariaDB - [github.com/go-sql-driver/mysql (v1.7.0)](https://github.com/go-sql-driver/mysql)
-- [x] MongoDB - [go.mongodb.org/mongo-driver (v1.11.3)](https://github.com/mongodb/mongo-go-driver)
-- [ ] MySQL
-- [x] PostgreSQL - [github.com/jackc/pgx/v5 (v5.3.1)](https://github.com/jackc/pgx)
-- [x] Redis - [github.com/go-redis/redis/v8 (v8.11.5)](https://github.com/redis/go-redis)
-- [ ] SQLite
-
-
-### Templates
-There is no single way to structure things in Go. You may not like the way this is exactly structured, or you may have different needs than what this tool can satisfiy. With templates, you can swiftly create modules from external template repositories, and then modify them to your liking.
-
-I have implemented a few templates that I have used in the past, all of which have inspired this tool, but I am sure there are more out there. If you have a template you would like to share, please open a pull request.
-
-- [evrone](https://github.com/evrone) / [go-clean-template](https://github.com/evrone/go-clean-template/tree/master)
-    - Clean Architecture template for Golang services
-- [thangchung](https://github.com/thangchung) / [go-coffeeshop](https://github.com/thangchung/go-coffeeshop) 
-    - A practical event-driven microservices demo built with Golang. Nomad, Consul Connect, Vault, and Terraform for deployment
-
-*For more information about project layouts, I recommend: [golang-standards/project-layout](https://github.com/golang-standards/project-layout)*
-
+- MariaDB - [github.com/go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
+- MongoDB - [go.mongodb.org/mongo-driver](https://github.com/mongodb/mongo-go-driver)
+- MySQL - [github.com/go-sql-driver/mysql](https://github.com/go-sql-driver/mysql)
+- PostgreSQL - [github.com/jackc/pgx/v5](https://github.com/jackc/pgx)
+- Redis - [github.com/go-redis/redis/v8](https://github.com/redis/go-redis)
 
 ### Structure
+This structure is by no means the official structure for Go projects; however, it is a set of [common historical and emerging project layout patterns in the Go ecosystem](https://github.com/golang-standards/project-layou).
+
+
 The following project was generated using the following command:
 ```bash
 gowizard generate --module github.com/user/module --adapter mariadb,redis
@@ -84,7 +83,6 @@ generated-by-gowizard
  ┃ ┃ ┃ ┣ service.go
  ┃ ┃ ┃ ┗ template.go
  ┃ ┗ logger
- ┃ ┃ ┗ zap.go
  ┣ README.md
  ┣ debug.log
  ┣ go.mod
@@ -92,8 +90,30 @@ generated-by-gowizard
  ┗ main.go
 ```
 
+### Templates
+There are excellent repositories already set up with specific project layouts that may be more to your liking. Templates allow you to choose from a list of external repositories with pre-configured project layouts.
+
+- [evrone](https://github.com/evrone) / [go-clean-template](https://github.com/evrone/go-clean-template/tree/master)
+    - Clean Architecture template for Golang services
+- [thangchung](https://github.com/thangchung) / [go-coffeeshop](https://github.com/thangchung/go-coffeeshop) 
+    - A practical event-driven microservices demo built with Golang. Nomad, Consul Connect, Vault, and Terraform for deployment
+
+If the repository isn't listed, you may use `gowizard template --custom` to use a custom template. If you'd like the template to be added to the list, please open an issue.
+
+> What makes this different from just cloning the repository? 
+
+The wizard will ask you a few questions to help you get started with your project. It will also rename the module, use the optional path, and run a setup function if it's a pre-defined template that needs additional setup.
+
 ## Development
-Rename `Makefile.local` to `Makefile`, change the variables at the top and run any of the commands to get started.
+Rename `Makefile.local` to `Makefile`, change the variables at the top, and run any of the commands to get started.
 
 ## Contributing
 Pull requests are welcome. For major or breaking changes, please open an issue first to discuss what you would like to change. 
+
+
+todo
+- [ ] generate makefile
+- [ ] generate readme with just the first line being # module
+add support for controllers
+    - [ ] REST
+    - [ ] gRPC
