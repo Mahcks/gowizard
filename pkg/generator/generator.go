@@ -50,8 +50,10 @@ func NewGenerator() *Generator {
 
 	// Register templates here
 	templates := map[string]domain.TemplateI{
-		"github.com/evrone/go-clean-template": repoTemplates.NewGoCleanTemplateRepo(),
-		"github.com/thangchung/go-coffeeshop": repoTemplates.NewGoCoffeshopRepo(),
+		"github.com/amitshekhariitbhu/go-backend-clean-architecture": repoTemplates.NewGoBackendCleanArchitectureTemplateRepo(),
+		"github.com/bxcodec/go-clean-arch":                           repoTemplates.NewGoCleanArchTemplateRepo(),
+		"github.com/evrone/go-clean-template":                        repoTemplates.NewGoCleanTemplateRepo(),
+		"github.com/thangchung/go-coffeeshop":                        repoTemplates.NewGoCoffeshopRepo(),
 	}
 
 	return &Generator{
@@ -111,6 +113,12 @@ func (gen *Generator) UseTemplate(template string, isCustom bool) error {
 		return err
 	}
 	gen.successMessage("Updated imports...")
+
+	err = gen.executeCommand("go mod tidy")
+	if err != nil {
+		return err
+	}
+	gen.successMessage("Executed `go mod tidy`")
 
 	fmt.Println(ansi.Color("Done!", "green+b"), fmt.Sprintf("\033[3m%s\033[0m", utils.GetRandomPhrase()))
 
